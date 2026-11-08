@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://*.geogebra.org https://*.wiris.net; script-src-elem 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; img-src 'self' data: blob: https://*.geogebra.org https://*.wiris.net; font-src 'self' data: https://*.geogebra.org https://*.wiris.net; connect-src 'self' blob: https://*.geogebra.org https://*.wiris.net; frame-src 'self' https://*.geogebra.org; worker-src 'self' blob: https://*.geogebra.org; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Math Pad · 函数面板</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/renderer.mjs"></script>
+</head>
+<body>
+  <header class="heading">
+    <div><span class="eyebrow">MATH PAD</span><h1>函数工作台</h1></div>
+    <div class="ready" id="graph-state" role="status">正在加载绘图组件…</div>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar" aria-label="曲线与分析">
+      <button class="formula-entry" id="open-formula" type="button" aria-haspopup="dialog">
+        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写或键盘输入</small></span>
+      </button>
+      <section class="curves-section" aria-labelledby="curves-title">
+        <div class="section-heading"><h2 id="curves-title">曲线</h2><span id="curve-count" class="badge">0</span></div>
+        <p id="empty-curves" class="empty">添加公式后，曲线会出现在右侧坐标系。</p>
+        <ul id="curves" class="curves"></ul>
+      </section>
+      <section class="analysis-section" aria-labelledby="analysis-title">
+        <h2 id="analysis-title">分析</h2>
+        <div class="analysis-actions">
+          <button id="intersect" type="button" disabled>求交点</button>
+          <select id="property" aria-label="曲线特性" disabled><option value="">曲线特性</option></select>
+          <button id="analyze" type="button" disabled>计算</button>
+        </div>
+        <p id="selection-hint" class="muted">勾选一条曲线查看特性，勾选两条曲线求交点。</p>
+        <p id="analysis-message" class="notice" role="status" hidden></p>
+        <ul id="results" class="results" aria-label="分析结果"></ul>
+      </section>
+    </aside>
+    <section class="plot" aria-label="函数坐标系">
+      <div class="plot-heading"><h2>坐标系</h2><button id="reset-view" type="button" disabled>重置视图</button></div>
+      <div id="graph" class="graph"></div>
+      <div class="graph-message" id="graph-message">
+        <strong id="graph-message-title">正在准备坐标系</strong>
+        <span id="graph-message-detail">正在连接 GeoGebra。</span>
+        <button id="retry-graph" type="button" hidden>重新加载</button>
+      </div>
+      <footer>Made with <span>GeoGebra®</span> <span class="divider">·</span> www.geogebra.org</footer>
+    </section>
+  </main>
+  <dialog id="formula-dialog" aria-labelledby="formula-title">
+    <form id="formula-form" novalidate>
+      <div class="dialog-heading">
+        <div><span class="eyebrow">公式输入</span><h2 id="formula-title">新增一条曲线</h2></div>
+        <button type="button" id="dismiss-formula" class="icon-button" aria-label="关闭公式面板">×</button>
+      </div>
+      <div class="input-modes" aria-label="输入方式">
+        <button id="mode-hand" type="button" aria-pressed="true">手写</button>
+        <button id="mode-keyboard" type="button" aria-pressed="false">键盘</button>
+      </div>
+      <div id="hand-area">
+        <div id="hand-canvas" aria-label="手写公式画布"></div>
+        <div class="hand-tools">
+          <p id="hand-status" class="muted" role="status">正在加载手写组件…</p>
+          <button id="clear-hand" type="button" disabled>清空</button>
+          <button id="retry-hand" type="button" hidden>重试</button>
+        </div>
+      </div>
+      <label for="formula-text" id="formula-label">识别结果（可修改）</label>
+      <input id="formula-text" type="text" placeholder="例如 y=x^2 或 x^2/25+y^2/9=1" maxlength="350" spellcheck="false" autocomplete="off" inputmode="text">
+      <div class="symbols" aria-label="常用数学符号">
+        <button type="button" data-symbol="^2">x²</button><button type="button" data-symbol="/">a/b</button>
+        <button type="button" data-symbol="sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
+        <button type="button" data-symbol="π">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
+        <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=">=</button>
+      </div>
+      <p id="formula-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="cancel-formula" type="button">取消</button>
+        <button id="submit-formula" class="primary" type="submit" disabled>插入并绘图</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

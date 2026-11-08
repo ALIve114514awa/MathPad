@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: #14213a;
+  background: #f0f3f8;
+  --muted: #52627b;
+  --border: #d9e1ed;
+  --accent: #2858cc;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; padding: 16px; height: 100vh; display: flex; flex-direction: column; gap: 12px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 24px; line-height: 1.2; }
+h2 { font-size: 14px; }
+button, input, select { font: inherit; }
+button, select { background: #fff; color: #203556; border: 1px solid var(--border); border-radius: 7px; }
+button { padding: 6px 9px; cursor: pointer; }
+button:hover:not(:disabled), select:hover:not(:disabled) { border-color: #8ea6df; background: #f5f8ff; }
+button:disabled, select:disabled { cursor: default; opacity: .5; }
+:focus-visible { outline: 2px solid #3974eb; outline-offset: 2px; }
+.heading, .section-heading, .plot-heading, .dialog-heading, .hand-tools, .dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eyebrow { display: block; color: var(--accent); font-weight: 700; font-size: 10px; letter-spacing: .14em; margin-bottom: 4px; }
+.ready { color: var(--muted); font-size: 12px; text-align: right; }
+.ready[data-state="ready"] { color: #126247; }
+.ready[data-state="error"] { color: #a33328; }
+.workspace { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(210px, 265px) minmax(0, 1fr); gap: 12px; }
+.sidebar, .plot { background: white; border: 1px solid var(--border); border-radius: 11px; min-width: 0; min-height: 0; }
+.sidebar { padding: 12px; overflow: auto; }
+.formula-entry { width: 100%; padding: 9px 10px; display: flex; align-items: center; gap: 8px; text-align: left; background: #f4f7ff; border-color: #c5d4f8; color: #214bb1; font-weight: 700; }
+.plus { font-size: 21px; }
+.formula-entry small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted); }
+.curves-section, .analysis-section { margin-top: 16px; }
+.badge { border-radius: 12px; background: #edf2f9; padding: 1px 7px; font-size: 11px; color: var(--muted); }
+.muted, .empty { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.empty { padding: 9px 0 0; }
+.curves, .results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.curve-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 5px; align-items: center; border: 1px solid var(--border); border-radius: 7px; padding: 5px; min-width: 0; }
+.curve-row[data-selected="true"] { border-color: #a6baf2; background: #f6f8ff; }
+.curve-row[data-visible="false"] .curve-formula { color: var(--muted); opacity: .7; }
+.curve-row input { margin: 3px; accent-color: var(--accent); }
+.curve-formula { min-width: 0; overflow-wrap: anywhere; font: 13px "Cambria Math", "Segoe UI", sans-serif; }
+.curve-color { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 4px 1px 0; }
+.curve-row button { padding: 3px 4px; font-size: 11px; }
+.analysis-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 5px; font-size: 12px; }
+.analysis-actions select { padding: 5px 2px; min-width: 0; }
+.notice, .error { font-size: 12px; line-height: 1.4; color: #a33328; margin-top: 7px; }
+.results li { background: #f4f6fb; border-radius: 7px; padding: 7px 8px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.results strong, .results small, .results span { display: block; }
+.results span { font: 13px "Cambria Math", "Segoe UI", sans-serif; }
+.results small { color: var(--muted); }
+.plot { position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.plot-heading { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.plot-heading button { font-size: 12px; }
+.graph { flex: 1; min-height: 0; overflow: hidden; }
+.graph-message { position: absolute; inset: 46px 0 25px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; padding: 15px; text-align: center; background: white; }
+.graph-message span { color: var(--muted); font-size: 13px; }
+footer { color: var(--muted); font-size: 10px; padding: 5px 10px; border-top: 1px solid var(--border); }
+.divider { margin: 0 2px; }
+dialog { width: min(510px, calc(100vw - 22px)); max-height: calc(100vh - 22px); padding: 15px; color: inherit; border: 1px solid var(--border); border-radius: 11px; box-shadow: 0 12px 44px #14213a44; }
+dialog::backdrop { background: #16274961; }
+.dialog-heading h2 { font-size: 19px; }
+.icon-button { font-size: 19px; line-height: 1; padding: 5px 8px; }
+.input-modes, .symbols { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+.input-modes button[aria-pressed="true"] { background: #e9f0ff; color: #214bb1; border-color: #aac0f0; font-weight: 600; }
+#hand-canvas { height: clamp(120px, 32vh, 225px); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; touch-action: none; }
+.hand-tools { margin: 4px 0 8px; }
+.hand-tools p { margin-right: auto; }
+.hand-tools button, .symbols button { padding: 3px 7px; font-size: 12px; }
+.symbols button { min-width: 28px; }
+label[for="formula-text"] { display: block; color: #203556; font-size: 12px; margin-bottom: 3px; }
+#formula-text { width: 100%; padding: 6px 8px; border: 1px solid #b8c7de; border-radius: 7px; font: 16px "Cambria Math", "Segoe UI", sans-serif; }
+#formula-text::placeholder { color: #62738e; }
+.dialog-actions { justify-content: flex-end; margin-top: 9px; }
+.primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+.primary:hover:not(:disabled) { background: #1f49b5; }
+
+@media (max-width: 620px) {
+  body { padding: 9px; gap: 8px; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(215px, 3fr) minmax(140px, 2fr); gap: 7px; }
+  .plot { grid-row: 1; }
+  .sidebar { grid-row: 2; padding: 8px; }
+}
