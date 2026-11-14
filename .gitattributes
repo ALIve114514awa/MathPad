@@ -1,0 +1,8 @@
+*.exe -text
+*.dll -text
+*.deflate -text
+*.pak -text
+*.bin -text
+*.dat -text
+*.asar -text
+/runtime/** binary

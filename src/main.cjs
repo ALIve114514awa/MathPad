@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, Menu, protocol, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, protocol, screen, session } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
-const { createNativeMathInput } = require('./native-math.cjs');
 
 const origin = 'mathpad://app';
 const files = new Map([
@@ -11,6 +10,12 @@ const files = new Map([
   ['/expression.mjs', ['expression.mjs', 'text/javascript']],
   ['/mathml.mjs', ['mathml.mjs', 'text/javascript']],
   ['/graph.mjs', ['graph.mjs', 'text/javascript']],
+  ['/calculator.mjs', ['calculator.mjs', 'text/javascript']],
+  ['/calculations.mjs', ['calculations.mjs', 'text/javascript']],
+  ['/calculation-worker.js', ['calculation-worker.js', 'text/javascript']],
+  ['/nerdamer.js', ['../../node_modules/nerdamer/dist/bundle.js', 'text/javascript']],
+  ['/katex.js', ['../../node_modules/katex/dist/katex.min.js', 'text/javascript']],
+  ['/katex.css', ['../../node_modules/katex/dist/katex.min.css', 'text/css']],
 ]);
 protocol.registerSchemesAsPrivileged([
   { scheme: 'mathpad', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -18,7 +23,6 @@ protocol.registerSchemesAsPrivileged([
 
 let panel;
 let quitting = false;
-const nativeMath = createNativeMathInput(app.isPackaged);
 
 function revealPanel() {
   if (!panel) return;
@@ -46,14 +50,13 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', revealPanel);
-  app.on('before-quit', () => {
-    quitting = true;
-    nativeMath.cancel();
-  });
+  app.on('before-quit', () => { quitting = true; });
   app.whenReady().then(() => {
     protocol.handle('mathpad', async (request) => {
       const url = new URL(request.url);
-      const file = url.host === 'app' && files.get(url.pathname);
+      const font = /^\/fonts\/(KaTeX_[a-zA-Z0-9_-]+\.(?:woff2?|ttf))$/.exec(url.pathname);
+      const file = url.host === 'app' && (files.get(url.pathname)
+        || (font && [`../../node_modules/katex/dist/fonts/${font[1]}`, font[1].endsWith('woff2') ? 'font/woff2' : font[1].endsWith('woff') ? 'font/woff' : 'font/ttf']));
       if (!file) return new Response('Not found', { status: 404 });
       return new Response(await readFile(path.join(__dirname, 'ui', file[0])), {
         headers: { 'Content-Type': `${file[1]}; charset=utf-8` },
@@ -70,28 +73,17 @@ if (!app.requestSingleInstanceLock()) {
       alwaysOnTop: true,
       autoHideMenuBar: true,
       webPreferences: {
-        preload: path.join(__dirname, 'preload.cjs'),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
       },
     });
-    const isPanel = (event) => event.sender === panel.webContents
-      && event.senderFrame?.parent === null && event.senderFrame.url === `${origin}/`;
-    ipcMain.handle('native-math:open', (event) => {
-      if (!isPanel(event) || !panel.isVisible()) return { status: 'cancelled' };
-      return nativeMath.open(panel);
-    });
-    ipcMain.handle('native-math:cancel', (event) => { if (isPanel(event)) nativeMath.cancel(); });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Math Pad', submenu: [{ label: '收起面板', click: () => panel.hide() }, { label: '退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
     ]));
     panel.webContents.on('will-navigate', (event) => event.preventDefault());
     panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    panel.webContents.on('render-process-gone', nativeMath.cancel);
-    panel.on('hide', nativeMath.cancel);
-    panel.on('minimize', nativeMath.cancel);
     panel.on('close', (event) => {
       if (quitting) return;
       event.preventDefault();

@@ -6,6 +6,8 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://*.geogebra.org https://*.wiris.net; script-src-elem 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; img-src 'self' data: blob: https://*.geogebra.org https://*.wiris.net; font-src 'self' data: https://*.geogebra.org https://*.wiris.net; connect-src 'self' blob: https://*.geogebra.org https://*.wiris.net; frame-src 'self' https://*.geogebra.org; worker-src 'self' blob: https://*.geogebra.org; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Math Pad · 函数面板</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/katex.css">
+  <script defer src="/katex.js"></script>
   <script type="module" src="/renderer.mjs"></script>
 </head>
 <body>
@@ -13,10 +15,15 @@
     <div><span class="eyebrow">MATH PAD</span><h1>函数工作台</h1></div>
     <div class="ready" id="graph-state" role="status">正在加载绘图组件…</div>
   </header>
-  <main class="workspace">
+  <nav class="workspace-tabs" aria-label="工作区">
+    <button type="button" data-workspace="graph-workspace" aria-pressed="true">函数绘图</button>
+    <button type="button" data-workspace="sequence-workspace" aria-pressed="false">数列</button>
+    <button type="button" data-workspace="derivative-workspace" aria-pressed="false">导函数与导数</button>
+  </nav>
+  <main class="workspace" id="graph-workspace">
     <aside class="sidebar" aria-label="曲线与分析">
       <button class="formula-entry" id="open-formula" type="button" aria-haspopup="dialog">
-        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>Windows 手写或键盘输入</small></span>
+        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写或键盘输入</small></span>
       </button>
       <section class="curves-section" aria-labelledby="curves-title">
         <div class="section-heading"><h2 id="curves-title">曲线</h2><span id="curve-count" class="badge">0</span></div>
@@ -46,6 +53,36 @@
       <footer>Made with <span>GeoGebra®</span> <span class="divider">·</span> www.geogebra.org</footer>
     </section>
   </main>
+  <section id="sequence-workspace" class="calculation-workspace" aria-labelledby="sequence-title" hidden>
+    <div class="calculation-intro"><h2 id="sequence-title">数列计算</h2><p>保留精确值，查看通项、前 n 项和及关键步骤。</p></div>
+    <form id="sequence-form" class="calculation-form">
+      <label>计算方式<select id="sequence-mode" name="mode"><option value="arithmetic">等差数列</option><option value="geometric">等比数列</option><option value="general">已知通项 aₙ</option><option value="recurrence">一阶递推 aₙ₊₁ = p aₙ + q</option></select></label>
+      <label data-sequence-modes="arithmetic geometric recurrence">首项 a₁<input name="first" value="2" maxlength="100" spellcheck="false"></label>
+      <label data-sequence-modes="arithmetic">公差 d<input name="step" value="3" maxlength="100" spellcheck="false"></label>
+      <label data-sequence-modes="geometric" hidden>公比 q<input name="ratio" value="2" maxlength="100" spellcheck="false"></label>
+      <label data-sequence-modes="recurrence" hidden>系数 p<input name="multiplier" value="2" maxlength="100" spellcheck="false"></label>
+      <label data-sequence-modes="recurrence" hidden>常数 q<input name="increment" value="1" maxlength="100" spellcheck="false"></label>
+      <label class="wide" data-sequence-modes="general" hidden>通项 aₙ =<input name="term" value="1/(n*(n+1))" maxlength="350" placeholder="例如 n^2、n*2^n、1/(n*(n+1))" spellcheck="false"></label>
+      <label>求第几项及前几项和 N<input name="count" type="number" min="1" max="1000" step="1" value="10" required></label>
+      <div class="calculation-submit"><button type="submit" class="primary">计算数列</button><button type="button" data-cancel-calculation="sequence" hidden>取消计算</button></div>
+    </form>
+    <div class="examples" aria-label="数列示例"><span>试一试</span><button type="button" data-sequence-example="squares">平方数列</button><button type="button" data-sequence-example="telescope">裂项求和</button><button type="button" data-sequence-example="weighted">错位相减</button><button type="button" data-sequence-example="recurrence">递推数列</button></div>
+    <p id="sequence-status" class="calculation-status" role="status"></p>
+    <div id="sequence-output" class="calculation-output" aria-live="polite"></div>
+  </section>
+  <section id="derivative-workspace" class="calculation-workspace" aria-labelledby="derivative-title" hidden>
+    <div class="calculation-intro"><h2 id="derivative-title">导函数与导数</h2><p>先符号求导，再代入点值；可将原函数、导函数和切线加入坐标系。</p></div>
+    <form id="derivative-form" class="calculation-form">
+      <label class="wide">函数 f(x) =<input name="formula" value="x^3-3*x" maxlength="350" placeholder="例如 sin(x^2)、ln(x)/x、x^x" required spellcheck="false"></label>
+      <label>求导阶数<select name="order"><option value="1">一阶导数</option><option value="2">二阶导数</option><option value="3">三阶导数</option><option value="4">四阶导数</option></select></label>
+      <label>点 x₀（选填）<input name="point" value="2" maxlength="100" placeholder="例如 1/2、sqrt(2)、pi/3" spellcheck="false"></label>
+      <div class="calculation-submit"><button type="submit" class="primary">计算导数</button><button type="button" data-cancel-calculation="derivative" hidden>取消计算</button></div>
+    </form>
+    <div class="examples" aria-label="求导示例"><span>试一试</span><button type="button" data-derivative-example="chain">复合三角函数</button><button type="button" data-derivative-example="quotient">对数与商法则</button><button type="button" data-derivative-example="power">幂指函数</button><button type="button" data-derivative-example="parameter">含参数</button></div>
+    <p class="muted">支持多项式、分式、根式、绝对值、指数、对数、三角及反三角函数与它们的复合。ln 是自然对数，lg / log(x) 是常用对数，log(底数, 真数) 指定底数。</p>
+    <p id="derivative-status" class="calculation-status" role="status"></p>
+    <div id="derivative-output" class="calculation-output" aria-live="polite"></div>
+  </section>
   <dialog id="formula-dialog" aria-labelledby="formula-title">
     <form id="formula-form" novalidate>
       <div class="dialog-heading">
@@ -53,12 +90,10 @@
         <button type="button" id="dismiss-formula" class="icon-button" aria-label="关闭公式面板">×</button>
       </div>
       <div class="input-modes" aria-label="输入方式">
-        <button id="mode-native" type="button" aria-pressed="true">Windows 手写</button>
+        <button id="mode-hand" type="button" aria-pressed="true">手写</button>
         <button id="mode-keyboard" type="button" aria-pressed="false">键盘</button>
-        <button id="mode-hand" type="button" aria-pressed="false">在线 WIRIS</button>
       </div>
-      <p id="native-status" class="muted" role="status" hidden>请在 Windows 手写面板中书写，完成后点「插入」。</p>
-      <div id="hand-area" hidden>
+      <div id="hand-area">
         <div id="hand-canvas" aria-label="手写公式画布"></div>
         <div class="hand-tools">
           <p id="hand-status" class="muted" role="status">正在加载手写组件…</p>
@@ -75,10 +110,6 @@
           <button type="button" data-symbol="π">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
           <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=">=</button>
         </div>
-        <details id="native-result" class="muted" hidden>
-          <summary>查看原始识别结果（MathML）</summary>
-          <pre id="native-mathml"></pre>
-        </details>
       </div>
       <p id="formula-error" class="error" role="alert" hidden></p>
       <div class="dialog-actions">

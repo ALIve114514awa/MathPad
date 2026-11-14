@@ -1,6 +1,7 @@
 import { compileFormula } from './expression.mjs';
 import { readMathML } from './mathml.mjs';
 import { availableProperties, createGraph } from './graph.mjs';
+import { initializeCalculator } from './calculator.mjs';
 
 const $ = (id) => document.getElementById(id);
 const colors = [[34, 92, 212], [175, 65, 36], [17, 124, 91], [130, 64, 166], [165, 110, 10], [11, 112, 144]];
@@ -17,8 +18,6 @@ const handCanvas = $('hand-canvas');
 let graph;
 let colorIndex = 0;
 let mode = 'keyboard';
-let nativeRequest;
-let nativeGeneration = 0;
 let hand;
 let handState = 'idle';
 let handTimer;
@@ -80,6 +79,7 @@ async function loadGraph() {
             try { resolve(createGraph(api)); } catch (error) { reject(error); }
           },
         }, true);
+        applet.setHTML5Codebase('https://www.geogebra.org/apps/5.4.920.0/web3d/');
         applet.inject(target);
       } catch (error) {
         clearTimeout(timer);
@@ -107,7 +107,7 @@ async function loadGraph() {
 
 function updateSubmit() {
   const waiting = mode === 'hand' && (handState === 'pending' || handState === 'error');
-  submit.disabled = mode === 'native' || !graph || !input.value.trim() || waiting;
+  submit.disabled = !graph || !input.value.trim() || waiting;
   submit.title = graph ? '' : '绘图组件尚未就绪。';
 }
 
@@ -174,63 +174,14 @@ async function createHand() {
 }
 
 function setMode(next) {
-  if (mode === 'native' && next !== 'native') cancelNative();
   mode = next;
-  $('mode-native').setAttribute('aria-pressed', String(mode === 'native'));
   $('mode-hand').setAttribute('aria-pressed', String(mode === 'hand'));
   $('mode-keyboard').setAttribute('aria-pressed', String(mode === 'keyboard'));
-  $('native-status').hidden = mode !== 'native';
   $('hand-area').hidden = mode !== 'hand';
-  $('typed-entry').hidden = mode === 'native';
-  submit.hidden = mode === 'native';
   $('formula-label').textContent = mode === 'hand' ? '识别结果（可修改）' : '输入公式';
   if (mode === 'hand' && !hand) createHand();
   if (mode === 'keyboard') input.focus();
   updateSubmit();
-}
-
-function cancelNative() {
-  ++nativeGeneration;
-  if (nativeRequest) window.nativeMath?.cancel().catch(() => {});
-}
-
-async function openNative() {
-  if (mode === 'native') return;
-  showText($('formula-error'), '');
-  setMode('native');
-  const generation = ++nativeGeneration;
-  const isCurrent = () => dialog.open && generation === nativeGeneration;
-  if (nativeRequest) await nativeRequest;
-  if (!isCurrent()) return;
-
-  const request = Promise.resolve().then(() => window.nativeMath?.open()).catch(() => undefined);
-  nativeRequest = request;
-  const result = await request;
-  if (nativeRequest === request) nativeRequest = undefined;
-  if (!isCurrent()) return;
-
-  if (result?.status === 'cancelled') {
-    closeFormula();
-    return;
-  }
-  setMode('keyboard');
-  if (result?.status !== 'inserted') {
-    showText($('formula-error'), 'Windows 数学输入控件不可用。可用键盘输入，或选择「在线 WIRIS」。');
-    return;
-  }
-  try {
-    const recognized = readMathML(result.mathml).trim();
-    if (!recognized) throw new Error('手写识别结果为空。');
-    input.value = recognized;
-  } catch (error) {
-    $('native-mathml').textContent = result.mathml;
-    $('native-result').hidden = false;
-    showText($('formula-error'), error.message);
-    return;
-  }
-  updateSubmit();
-  if (graph) plotFormula();
-  else showText($('formula-error'), '已保留识别结果。绘图组件就绪后可点「插入并绘图」。');
 }
 
 function selectionChanged() {
@@ -354,14 +305,11 @@ function calculate(command, sources, title, evaluate, emptyMessage) {
 
 $('open-formula').onclick = () => {
   input.value = '';
-  $('native-result').hidden = true;
-  $('native-result').open = false;
-  $('native-mathml').textContent = '';
+  showText($('formula-error'), '');
   dialog.showModal();
-  openNative();
+  setMode('hand');
 };
 function closeFormula() {
-  cancelNative();
   mode = 'keyboard';
   ++handGeneration;
   clearTimeout(handTimer);
@@ -375,7 +323,6 @@ dialog.oncancel = (event) => {
   event.preventDefault();
   closeFormula();
 };
-$('mode-native').onclick = openNative;
 $('mode-hand').onclick = () => setMode('hand');
 $('mode-keyboard').onclick = () => setMode('keyboard');
 $('clear-hand').onclick = () => {
@@ -404,16 +351,20 @@ function plotFormula() {
   if (submit.disabled) return;
   const text = input.value.trim();
   try {
-    const color = colors[colorIndex % colors.length];
-    const curve = { ...graph.plot(compileFormula(text), color), text, color, visible: true };
-    colorIndex++;
-    curves.set(curve.name, curve);
-    addCurveRow(curve);
+    addExpression(text);
     closeFormula();
   } catch (error) {
     showText($('formula-error'), error.message || '未能绘图。');
     input.focus();
   }
+}
+function addExpression(text) {
+  if (!graph) throw new Error('绘图组件尚未就绪，请等待坐标系加载完成后再试。');
+  const color = colors[colorIndex % colors.length];
+  const curve = { ...graph.plot(compileFormula(text), color), text, color, visible: true };
+  colorIndex++;
+  curves.set(curve.name, curve);
+  addCurveRow(curve);
 }
 $('formula-form').onsubmit = (event) => {
   event.preventDefault();
@@ -435,4 +386,5 @@ $('intersect').onclick = () => {
 $('reset-view').onclick = () => graph.resetView();
 $('retry-graph').onclick = loadGraph;
 new ResizeObserver(resizeGraph).observe(graphHost);
+initializeCalculator(addExpression);
 loadGraph();

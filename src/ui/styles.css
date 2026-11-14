@@ -25,6 +25,34 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .ready { color: var(--muted); font-size: 12px; text-align: right; }
 .ready[data-state="ready"] { color: #126247; }
 .ready[data-state="error"] { color: #a33328; }
+.workspace-tabs { display: flex; gap: 7px; }
+.workspace-tabs button { flex: 1; font-size: 13px; }
+.workspace-tabs button[aria-pressed="true"] { background: #e9f0ff; color: #214bb1; border-color: #aac0f0; font-weight: 600; }
+.calculation-workspace { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 11px; padding: 18px; background: white; }
+.calculation-intro h2 { font-size: 20px; }
+.calculation-intro p { color: var(--muted); margin-top: 5px; font-size: 13px; }
+.calculation-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px 0 12px; }
+.calculation-form label { display: flex; flex-direction: column; gap: 5px; color: #203556; font-size: 13px; }
+.calculation-form input, .calculation-form select { width: 100%; min-width: 0; border: 1px solid #b8c7de; border-radius: 7px; padding: 8px; background: white; color: inherit; }
+.calculation-form input { font: 17px "Cambria Math", "Segoe UI", sans-serif; }
+.wide, .calculation-submit { grid-column: 1 / -1; }
+.calculation-submit { display: flex; gap: 8px; }
+.examples { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 8px 0 12px; font-size: 12px; color: var(--muted); }
+.examples button { padding: 4px 7px; font-size: 12px; }
+.calculation-status { margin: 10px 0; font-size: 13px; color: #a33328; }
+.calculation-output { display: grid; gap: 10px; }
+.formula-card { min-width: 0; padding: 12px 14px; background: #f5f7fc; border: 1px solid var(--border); border-radius: 9px; }
+.formula-card h3 { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+.formula-math { overflow-x: auto; padding: 4px 0; font: 18px "Cambria Math", "Segoe UI", sans-serif; }
+.formula-card small { display: block; color: var(--muted); margin-top: 4px; }
+.calculation-steps { font-size: 13px; padding-left: 23px; margin: 4px 0; }
+.calculation-steps li { margin: 10px 0; line-height: 1.5; }
+.calculation-notice { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
+.calculation-plots { display: flex; flex-wrap: wrap; gap: 7px; }
+.terms-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.terms-table th, .terms-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.terms-table th { color: var(--muted); }
+.terms-table td:last-child { overflow-wrap: anywhere; }
 .workspace { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(210px, 265px) minmax(0, 1fr); gap: 12px; }
 .sidebar, .plot { background: white; border: 1px solid var(--border); border-radius: 11px; min-width: 0; min-height: 0; }
 .sidebar { padding: 12px; overflow: auto; }
@@ -58,13 +86,13 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .graph-message span { color: var(--muted); font-size: 13px; }
 footer { color: var(--muted); font-size: 10px; padding: 5px 10px; border-top: 1px solid var(--border); }
 .divider { margin: 0 2px; }
-dialog { width: min(510px, calc(100vw - 22px)); max-height: calc(100vh - 22px); padding: 15px; color: inherit; border: 1px solid var(--border); border-radius: 11px; box-shadow: 0 12px 44px #14213a44; }
+dialog { width: min(780px, calc(100vw - 22px)); max-height: calc(100vh - 22px); padding: 18px; color: inherit; border: 1px solid var(--border); border-radius: 11px; box-shadow: 0 12px 44px #14213a44; }
 dialog::backdrop { background: #16274961; }
 .dialog-heading h2 { font-size: 19px; }
 .icon-button { font-size: 19px; line-height: 1; padding: 5px 8px; }
 .input-modes, .symbols { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
 .input-modes button[aria-pressed="true"] { background: #e9f0ff; color: #214bb1; border-color: #aac0f0; font-weight: 600; }
-#hand-canvas { height: clamp(120px, 32vh, 225px); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; touch-action: none; }
+#hand-canvas { height: clamp(170px, calc(100vh - 355px), 430px); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; touch-action: none; }
 .hand-tools { margin: 4px 0 8px; }
 .hand-tools p { margin-right: auto; }
 .hand-tools button, .symbols button { padding: 3px 7px; font-size: 12px; }
@@ -73,7 +101,6 @@ label[for="formula-text"] { display: block; color: #203556; font-size: 12px; mar
 #formula-text { width: 100%; padding: 6px 8px; border: 1px solid #b8c7de; border-radius: 7px; font: 16px "Cambria Math", "Segoe UI", sans-serif; }
 #formula-text::placeholder { color: #62738e; }
 .dialog-actions { justify-content: flex-end; margin-top: 9px; }
-#native-mathml { max-height: 110px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
 .primary:hover:not(:disabled) { background: #1f49b5; }
 
@@ -82,4 +109,6 @@ label[for="formula-text"] { display: block; color: #203556; font-size: 12px; mar
   .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(215px, 3fr) minmax(140px, 2fr); gap: 7px; }
   .plot { grid-row: 1; }
   .sidebar { grid-row: 2; padding: 8px; }
+  .calculation-workspace { padding: 12px; }
+  .calculation-form { grid-template-columns: minmax(0, 1fr); }
 }

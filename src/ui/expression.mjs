@@ -3,9 +3,10 @@ const functions = {
   ln: [1, 'ln'], lg: [1, 'lg'], log: [[1, 2], 'log'],
   sin: [1, 'sin'], cos: [1, 'cos'], tan: [1, 'tan'],
   asin: [1, 'asin'], acos: [1, 'acos'], atan: [1, 'atan'],
+  sgn: [1, 'sgn'],
 };
 
-const tokenPattern = /\d+(?:\.\d*)?|\.\d+|nroot|sqrt|abs|exp|log|ln|lg|asin|acos|atan|sin|cos|tan|pi|[xyπeℯ+*/^(),-]/gy;
+const tokenPattern = /\d+(?:\.\d*)?|\.\d+|nroot|sqrt|abs|exp|log|ln|lg|asin|acos|atan|sin|cos|tan|sgn|pi|[a-zπℯ+*/^(),-]/gy;
 const superscript = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 
 export function normalizeFormula(text) {
@@ -20,7 +21,7 @@ export function normalizeFormula(text) {
   return normalized;
 }
 
-function parse(input) {
+function parse(input, variables = ['x', 'y']) {
   const tokens = [];
   tokenPattern.lastIndex = 0;
   while (tokenPattern.lastIndex < input.length) {
@@ -59,7 +60,7 @@ function parse(input) {
       return { call: name === 'log' && args.length === 1 ? 'lg' : name, args };
     }
     if (token && /^[\d.]/.test(token) && Number.isFinite(Number(token))) return { number: token };
-    if (token === 'x' || token === 'y') return { variable: token };
+    if (variables.includes(token)) return { variable: token };
     if (['π', 'pi', 'e', 'ℯ'].includes(token)) return { constant: token === 'pi' || token === 'π' ? 'π' : 'ℯ' };
     throw new Error('公式不完整。请检查括号和运算符。');
   }
@@ -95,6 +96,15 @@ function parse(input) {
   if (index !== tokens.length) throw new Error(`请检查「${peek()}」前后的运算符或括号。`);
   return result;
 }
+
+export function parseExpression(text, variables = ['x']) {
+  if (typeof text !== 'string' || text.length > 350) throw new Error('表达式过长，请控制在 350 个字符以内。');
+  const normalized = normalizeFormula(text);
+  if (!normalized) throw new Error('请输入表达式。');
+  return parse(normalized, variables);
+}
+
+export { emit as emitExpression };
 
 function usesY(node) {
   if (node.variable) return node.variable === 'y';

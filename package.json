@@ -1,19 +1,25 @@
 {
   "name": "math-pad",
   "productName": "MathPad",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A floating graphing panel for Windows presentations",
   "main": "src/main.cjs",
   "private": true,
   "scripts": {
-    "prestart": "node scripts/build-native.cjs",
     "start": "electron .",
     "test": "node --test",
-    "make": "electron-forge make --platform win32 --arch x64"
+    "test:app": "electron scripts/smoke-electron.cjs",
+    "verify:portable": "node scripts/verify-portable.cjs",
+    "make": "electron-forge make --platform win32 --arch x64",
+    "portable": "npm run make && node scripts/sync-portable.cjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
     "@electron-forge/maker-zip": "8.0.1",
     "electron": "45.2.3"
+  },
+  "dependencies": {
+    "katex": "0.19.1",
+    "nerdamer": "2.0.1"
   }
 }

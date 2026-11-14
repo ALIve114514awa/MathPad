@@ -1,2 +1,5 @@
 node_modules/
 out/
+runtime/MathPadHost.exe
+runtime/MathPadHost.exe.*.tmp
+runtime/.engine-ready
