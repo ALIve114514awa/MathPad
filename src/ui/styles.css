@@ -73,6 +73,7 @@ label[for="formula-text"] { display: block; color: #203556; font-size: 12px; mar
 #formula-text { width: 100%; padding: 6px 8px; border: 1px solid #b8c7de; border-radius: 7px; font: 16px "Cambria Math", "Segoe UI", sans-serif; }
 #formula-text::placeholder { color: #62738e; }
 .dialog-actions { justify-content: flex-end; margin-top: 9px; }
+#native-mathml { max-height: 110px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
 .primary:hover:not(:disabled) { background: #1f49b5; }
 

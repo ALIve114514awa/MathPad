@@ -16,7 +16,7 @@
   <main class="workspace">
     <aside class="sidebar" aria-label="曲线与分析">
       <button class="formula-entry" id="open-formula" type="button" aria-haspopup="dialog">
-        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写或键盘输入</small></span>
+        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>Windows 手写或键盘输入</small></span>
       </button>
       <section class="curves-section" aria-labelledby="curves-title">
         <div class="section-heading"><h2 id="curves-title">曲线</h2><span id="curve-count" class="badge">0</span></div>
@@ -53,10 +53,12 @@
         <button type="button" id="dismiss-formula" class="icon-button" aria-label="关闭公式面板">×</button>
       </div>
       <div class="input-modes" aria-label="输入方式">
-        <button id="mode-hand" type="button" aria-pressed="true">手写</button>
+        <button id="mode-native" type="button" aria-pressed="true">Windows 手写</button>
         <button id="mode-keyboard" type="button" aria-pressed="false">键盘</button>
+        <button id="mode-hand" type="button" aria-pressed="false">在线 WIRIS</button>
       </div>
-      <div id="hand-area">
+      <p id="native-status" class="muted" role="status" hidden>请在 Windows 手写面板中书写，完成后点「插入」。</p>
+      <div id="hand-area" hidden>
         <div id="hand-canvas" aria-label="手写公式画布"></div>
         <div class="hand-tools">
           <p id="hand-status" class="muted" role="status">正在加载手写组件…</p>
@@ -64,13 +66,19 @@
           <button id="retry-hand" type="button" hidden>重试</button>
         </div>
       </div>
-      <label for="formula-text" id="formula-label">识别结果（可修改）</label>
-      <input id="formula-text" type="text" placeholder="例如 y=x^2 或 x^2/25+y^2/9=1" maxlength="350" spellcheck="false" autocomplete="off" inputmode="text">
-      <div class="symbols" aria-label="常用数学符号">
-        <button type="button" data-symbol="^2">x²</button><button type="button" data-symbol="/">a/b</button>
-        <button type="button" data-symbol="sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
-        <button type="button" data-symbol="π">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
-        <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=">=</button>
+      <div id="typed-entry">
+        <label for="formula-text" id="formula-label">输入公式</label>
+        <input id="formula-text" type="text" placeholder="例如 y=x^2 或 x^2/25+y^2/9=1" maxlength="350" spellcheck="false" autocomplete="off" inputmode="text">
+        <div class="symbols" aria-label="常用数学符号">
+          <button type="button" data-symbol="^2">x²</button><button type="button" data-symbol="/">a/b</button>
+          <button type="button" data-symbol="sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
+          <button type="button" data-symbol="π">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
+          <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=">=</button>
+        </div>
+        <details id="native-result" class="muted" hidden>
+          <summary>查看原始识别结果（MathML）</summary>
+          <pre id="native-mathml"></pre>
+        </details>
       </div>
       <p id="formula-error" class="error" role="alert" hidden></p>
       <div class="dialog-actions">

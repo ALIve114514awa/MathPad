@@ -1,6 +1,7 @@
-const { app, BrowserWindow, Menu, protocol, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, screen, session } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
+const { createNativeMathInput } = require('./native-math.cjs');
 
 const origin = 'mathpad://app';
 const files = new Map([
@@ -17,6 +18,7 @@ protocol.registerSchemesAsPrivileged([
 
 let panel;
 let quitting = false;
+const nativeMath = createNativeMathInput(app.isPackaged);
 
 function revealPanel() {
   if (!panel) return;
@@ -44,7 +46,10 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', revealPanel);
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => {
+    quitting = true;
+    nativeMath.cancel();
+  });
   app.whenReady().then(() => {
     protocol.handle('mathpad', async (request) => {
       const url = new URL(request.url);
@@ -64,14 +69,29 @@ if (!app.requestSingleInstanceLock()) {
       backgroundColor: '#f0f3f8',
       alwaysOnTop: true,
       autoHideMenuBar: true,
-      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
     });
+    const isPanel = (event) => event.sender === panel.webContents
+      && event.senderFrame?.parent === null && event.senderFrame.url === `${origin}/`;
+    ipcMain.handle('native-math:open', (event) => {
+      if (!isPanel(event) || !panel.isVisible()) return { status: 'cancelled' };
+      return nativeMath.open(panel);
+    });
+    ipcMain.handle('native-math:cancel', (event) => { if (isPanel(event)) nativeMath.cancel(); });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'Math Pad', submenu: [{ label: '收起面板', click: () => panel.hide() }, { label: '退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
     ]));
     panel.webContents.on('will-navigate', (event) => event.preventDefault());
     panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    panel.webContents.on('render-process-gone', nativeMath.cancel);
+    panel.on('hide', nativeMath.cancel);
+    panel.on('minimize', nativeMath.cancel);
     panel.on('close', (event) => {
       if (quitting) return;
       event.preventDefault();

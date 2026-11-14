@@ -16,7 +16,9 @@ const handCanvas = $('hand-canvas');
 
 let graph;
 let colorIndex = 0;
-let mode = 'hand';
+let mode = 'keyboard';
+let nativeRequest;
+let nativeGeneration = 0;
 let hand;
 let handState = 'idle';
 let handTimer;
@@ -105,7 +107,7 @@ async function loadGraph() {
 
 function updateSubmit() {
   const waiting = mode === 'hand' && (handState === 'pending' || handState === 'error');
-  submit.disabled = !graph || !input.value.trim() || waiting;
+  submit.disabled = mode === 'native' || !graph || !input.value.trim() || waiting;
   submit.title = graph ? '' : '绘图组件尚未就绪。';
 }
 
@@ -172,14 +174,63 @@ async function createHand() {
 }
 
 function setMode(next) {
+  if (mode === 'native' && next !== 'native') cancelNative();
   mode = next;
+  $('mode-native').setAttribute('aria-pressed', String(mode === 'native'));
   $('mode-hand').setAttribute('aria-pressed', String(mode === 'hand'));
   $('mode-keyboard').setAttribute('aria-pressed', String(mode === 'keyboard'));
+  $('native-status').hidden = mode !== 'native';
   $('hand-area').hidden = mode !== 'hand';
+  $('typed-entry').hidden = mode === 'native';
+  submit.hidden = mode === 'native';
   $('formula-label').textContent = mode === 'hand' ? '识别结果（可修改）' : '输入公式';
   if (mode === 'hand' && !hand) createHand();
   if (mode === 'keyboard') input.focus();
   updateSubmit();
+}
+
+function cancelNative() {
+  ++nativeGeneration;
+  if (nativeRequest) window.nativeMath?.cancel().catch(() => {});
+}
+
+async function openNative() {
+  if (mode === 'native') return;
+  showText($('formula-error'), '');
+  setMode('native');
+  const generation = ++nativeGeneration;
+  const isCurrent = () => dialog.open && generation === nativeGeneration;
+  if (nativeRequest) await nativeRequest;
+  if (!isCurrent()) return;
+
+  const request = Promise.resolve().then(() => window.nativeMath?.open()).catch(() => undefined);
+  nativeRequest = request;
+  const result = await request;
+  if (nativeRequest === request) nativeRequest = undefined;
+  if (!isCurrent()) return;
+
+  if (result?.status === 'cancelled') {
+    closeFormula();
+    return;
+  }
+  setMode('keyboard');
+  if (result?.status !== 'inserted') {
+    showText($('formula-error'), 'Windows 数学输入控件不可用。可用键盘输入，或选择「在线 WIRIS」。');
+    return;
+  }
+  try {
+    const recognized = readMathML(result.mathml).trim();
+    if (!recognized) throw new Error('手写识别结果为空。');
+    input.value = recognized;
+  } catch (error) {
+    $('native-mathml').textContent = result.mathml;
+    $('native-result').hidden = false;
+    showText($('formula-error'), error.message);
+    return;
+  }
+  updateSubmit();
+  if (graph) plotFormula();
+  else showText($('formula-error'), '已保留识别结果。绘图组件就绪后可点「插入并绘图」。');
 }
 
 function selectionChanged() {
@@ -303,11 +354,15 @@ function calculate(command, sources, title, evaluate, emptyMessage) {
 
 $('open-formula').onclick = () => {
   input.value = '';
-  showText($('formula-error'), '');
+  $('native-result').hidden = true;
+  $('native-result').open = false;
+  $('native-mathml').textContent = '';
   dialog.showModal();
-  setMode('hand');
+  openNative();
 };
 function closeFormula() {
+  cancelNative();
+  mode = 'keyboard';
   ++handGeneration;
   clearTimeout(handTimer);
   hand = undefined;
@@ -320,6 +375,7 @@ dialog.oncancel = (event) => {
   event.preventDefault();
   closeFormula();
 };
+$('mode-native').onclick = openNative;
 $('mode-hand').onclick = () => setMode('hand');
 $('mode-keyboard').onclick = () => setMode('keyboard');
 $('clear-hand').onclick = () => {
@@ -344,8 +400,7 @@ for (const button of document.querySelectorAll('[data-symbol]')) {
     input.dispatchEvent(new Event('input'));
   };
 }
-$('formula-form').onsubmit = (event) => {
-  event.preventDefault();
+function plotFormula() {
   if (submit.disabled) return;
   const text = input.value.trim();
   try {
@@ -359,6 +414,10 @@ $('formula-form').onsubmit = (event) => {
     showText($('formula-error'), error.message || '未能绘图。');
     input.focus();
   }
+}
+$('formula-form').onsubmit = (event) => {
+  event.preventDefault();
+  plotFormula();
 };
 $('property').onchange = () => { $('analyze').disabled = !$('property').value; };
 $('analyze').onclick = () => {
