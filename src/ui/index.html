@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://*.geogebra.org https://*.wiris.net; script-src-elem 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://*.geogebra.org https://*.wiris.net; img-src 'self' data: blob: https://*.geogebra.org https://*.wiris.net; font-src 'self' data: https://*.geogebra.org https://*.wiris.net; connect-src 'self' blob: https://*.geogebra.org https://*.wiris.net; frame-src 'self' https://*.geogebra.org; worker-src 'self' blob: https://*.geogebra.org; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://*.wiris.net; script-src-elem 'self' 'unsafe-inline' https://*.wiris.net; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://*.wiris.net; img-src 'self' data: blob: https://*.wiris.net; font-src 'self' data: https://*.wiris.net; connect-src 'self' blob: https://*.wiris.net; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Math Pad · 函数面板</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/katex.css">
@@ -13,15 +13,19 @@
 <body>
   <header class="heading">
     <div><span class="eyebrow">MATH PAD</span><h1>函数工作台</h1></div>
-    <div class="ready" id="graph-state" role="status">正在加载绘图组件…</div>
+    <div class="heading-actions"><div class="ready" id="graph-state" role="status">正在加载绘图组件…</div><button id="clear-all" type="button" title="清空所有曲线、分析结果、教学演示和输入">清空全部</button></div>
   </header>
   <nav class="workspace-tabs" aria-label="工作区">
-    <button type="button" data-workspace="graph-workspace" aria-pressed="true">函数绘图</button>
+    <button type="button" data-workspace="graph-workspace" aria-pressed="true">函数与导数</button>
     <button type="button" data-workspace="sequence-workspace" aria-pressed="false">数列</button>
-    <button type="button" data-workspace="derivative-workspace" aria-pressed="false">导函数与导数</button>
   </nav>
   <main class="workspace" id="graph-workspace">
-    <aside class="sidebar" aria-label="曲线与分析">
+    <aside id="input-sidebar" class="sidebar" aria-label="曲线、导数与分析">
+      <nav class="sidebar-tabs" aria-label="函数工具">
+        <button type="button" data-panel="curves-panel" aria-pressed="true">曲线与分析</button>
+        <button type="button" data-panel="derivative-workspace" aria-pressed="false">导数教学</button>
+      </nav>
+      <div id="curves-panel" class="sidebar-panel">
       <button class="formula-entry" id="open-formula" type="button" aria-haspopup="dialog">
         <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写或键盘输入</small></span>
       </button>
@@ -34,6 +38,7 @@
         <h2 id="analysis-title">分析</h2>
         <div class="analysis-actions">
           <button id="intersect" type="button" disabled>求交点</button>
+          <button id="differentiate-selected" type="button" disabled>求导教学</button>
           <select id="property" aria-label="曲线特性" disabled><option value="">曲线特性</option></select>
           <button id="analyze" type="button" disabled>计算</button>
         </div>
@@ -41,17 +46,54 @@
         <p id="analysis-message" class="notice" role="status" hidden></p>
         <ul id="results" class="results" aria-label="分析结果"></ul>
       </section>
+      </div>
+  <section id="derivative-workspace" class="sidebar-panel" aria-labelledby="derivative-title" hidden>
+    <div class="calculation-intro"><h2 id="derivative-title">导函数与导数</h2><p>公式、图像与斜率在同一工作台对照。</p></div>
+    <div class="lesson-examples" aria-label="导数教学示例">
+      <span class="muted">课堂演示</span>
+      <button type="button" data-lesson-example="quadratic">割线 → 切线</button>
+      <button type="button" data-lesson-example="stationary">零导数≠极值</button>
+      <button type="button" data-lesson-example="corner">尖点与不可导</button>
+    </div>
+    <form id="derivative-form" class="calculation-form">
+      <label class="wide">函数 f(x) =<input name="formula" value="x^2" maxlength="350" placeholder="例如 sin(x^2)、ln(x)/x、x^x" required spellcheck="false"></label>
+      <label>求导阶数<select name="order"><option value="1">一阶导数</option><option value="2">二阶导数</option><option value="3">三阶导数</option><option value="4">四阶导数</option></select></label>
+      <label>点 x₀（选填）<input name="point" value="1" maxlength="100" placeholder="例如 1/2、sqrt(2)、pi/3" spellcheck="false"></label>
+      <div class="calculation-submit"><button type="submit" class="primary">计算并同步绘图</button><button type="button" data-cancel-calculation="derivative" hidden>取消计算</button></div>
+    </form>
+    <p id="derivative-status" class="calculation-status" role="status"></p>
+    <div id="derivative-output" class="calculation-output" aria-live="polite"></div>
+    <details class="input-reference"><summary>更多示例与输入规则</summary>
+    <div class="examples" aria-label="求导示例"><span>试一试</span><button type="button" data-derivative-example="chain">复合三角函数</button><button type="button" data-derivative-example="quotient">对数与商法则</button><button type="button" data-derivative-example="power">幂指函数</button><button type="button" data-derivative-example="parameter">含参数</button></div>
+    <p class="muted">支持多项式、分式、根式、绝对值、指数、对数、三角及反三角函数与它们的复合。ln 是自然对数，lg / log(x) 是常用对数，log(底数, 真数) 指定底数。</p>
+    </details>
+  </section>
     </aside>
+    <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-label="调整输入边栏宽度" aria-controls="input-sidebar" aria-orientation="vertical" tabindex="0" title="拖动调整宽度；双击恢复默认；方向键微调"></div>
     <section class="plot" aria-label="函数坐标系">
       <div class="plot-heading"><h2>坐标系</h2><button id="reset-view" type="button" disabled>重置视图</button></div>
       <div id="graph" class="graph"></div>
       <div class="graph-message" id="graph-message">
         <strong id="graph-message-title">正在准备坐标系</strong>
-        <span id="graph-message-detail">正在连接 GeoGebra。</span>
+        <span id="graph-message-detail">正在加载本地绘图资源。</span>
         <button id="retry-graph" type="button" hidden>重新加载</button>
       </div>
       <footer>Made with <span>GeoGebra®</span> <span class="divider">·</span> www.geogebra.org</footer>
     </section>
+    <div id="lesson-resizer" class="sidebar-resizer lesson-resizer" role="separator" aria-label="调整演示边栏宽度" aria-controls="derivative-teaching" aria-orientation="vertical" tabindex="0" title="拖动调整宽度；双击恢复默认；方向键微调"></div>
+      <aside id="derivative-teaching" class="sidebar derivative-teaching" aria-label="导数动态演示" hidden>
+        <div class="lesson-heading"><strong>看见变化率</strong><button id="lesson-clear" type="button">收起演示</button></div>
+        <div class="lesson-legend"><span class="legend-source">原函数 f</span><span class="legend-derivative">一阶导函数 f′</span><span class="legend-tangent">切线</span><span class="legend-secant">割线</span></div>
+        <p id="lesson-question" class="lesson-question"></p>
+        <div class="lesson-controls">
+          <label>取点 a <input id="lesson-a" type="number" step="0.1" value="1" aria-label="取点横坐标 a"><input id="lesson-a-slider" type="range" min="-5" max="5" step="0.01" value="1" aria-label="拖动取点 a"></label>
+          <label>间隔 h <output id="lesson-h-value">1</output><input id="lesson-h" type="range" min="-3" max="0.5" step="0.01" value="0" aria-label="间隔 h 的对数刻度"></label>
+        </div>
+        <div class="lesson-actions"><button id="lesson-direction" type="button">从右侧趋近</button><button id="lesson-play" type="button">播放 h → 0</button><button id="lesson-focus" type="button">定位取点</button><label><input id="lesson-show-tangent" type="checkbox" checked>切线</label><label><input id="lesson-show-derivative" type="checkbox" checked>导函数</label></div>
+        <div id="lesson-readout" class="lesson-readout" aria-live="off"></div>
+        <p id="lesson-notice" class="lesson-notice" role="status"></p>
+        <details class="lesson-definition"><summary>比较左右差商 · 导数定义</summary><div id="lesson-definition-math" class="formula-math"></div><table id="lesson-table"><thead><tr><th>|h|</th><th>左侧差商</th><th>右侧差商</th></tr></thead><tbody></tbody></table><p class="muted">数值演示用于观察，不能代替极限与可导性的证明。拖动横轴上的 a 点，也可改变观察位置。</p></details>
+      </aside>
   </main>
   <section id="sequence-workspace" class="calculation-workspace" aria-labelledby="sequence-title" hidden>
     <div class="calculation-intro"><h2 id="sequence-title">数列计算</h2><p>保留精确值，查看通项、前 n 项和及关键步骤。</p></div>
@@ -70,19 +112,6 @@
     <p id="sequence-status" class="calculation-status" role="status"></p>
     <div id="sequence-output" class="calculation-output" aria-live="polite"></div>
   </section>
-  <section id="derivative-workspace" class="calculation-workspace" aria-labelledby="derivative-title" hidden>
-    <div class="calculation-intro"><h2 id="derivative-title">导函数与导数</h2><p>先符号求导，再代入点值；可将原函数、导函数和切线加入坐标系。</p></div>
-    <form id="derivative-form" class="calculation-form">
-      <label class="wide">函数 f(x) =<input name="formula" value="x^3-3*x" maxlength="350" placeholder="例如 sin(x^2)、ln(x)/x、x^x" required spellcheck="false"></label>
-      <label>求导阶数<select name="order"><option value="1">一阶导数</option><option value="2">二阶导数</option><option value="3">三阶导数</option><option value="4">四阶导数</option></select></label>
-      <label>点 x₀（选填）<input name="point" value="2" maxlength="100" placeholder="例如 1/2、sqrt(2)、pi/3" spellcheck="false"></label>
-      <div class="calculation-submit"><button type="submit" class="primary">计算导数</button><button type="button" data-cancel-calculation="derivative" hidden>取消计算</button></div>
-    </form>
-    <div class="examples" aria-label="求导示例"><span>试一试</span><button type="button" data-derivative-example="chain">复合三角函数</button><button type="button" data-derivative-example="quotient">对数与商法则</button><button type="button" data-derivative-example="power">幂指函数</button><button type="button" data-derivative-example="parameter">含参数</button></div>
-    <p class="muted">支持多项式、分式、根式、绝对值、指数、对数、三角及反三角函数与它们的复合。ln 是自然对数，lg / log(x) 是常用对数，log(底数, 真数) 指定底数。</p>
-    <p id="derivative-status" class="calculation-status" role="status"></p>
-    <div id="derivative-output" class="calculation-output" aria-live="polite"></div>
-  </section>
   <dialog id="formula-dialog" aria-labelledby="formula-title">
     <form id="formula-form" novalidate>
       <div class="dialog-heading">
@@ -92,8 +121,10 @@
       <div class="input-modes" aria-label="输入方式">
         <button id="mode-hand" type="button" aria-pressed="true">手写</button>
         <button id="mode-keyboard" type="button" aria-pressed="false">键盘</button>
+        <button id="mode-python" type="button" aria-pressed="false">Python 表达式</button>
       </div>
       <div id="hand-area">
+        <p class="muted">WIRIS 在线手写演示：笔画会发送给 WIRIS 识别，需要联网。键盘输入与绘图可离线使用。</p>
         <div id="hand-canvas" aria-label="手写公式画布"></div>
         <div class="hand-tools">
           <p id="hand-status" class="muted" role="status">正在加载手写组件…</p>
@@ -105,11 +136,26 @@
         <label for="formula-text" id="formula-label">输入公式</label>
         <input id="formula-text" type="text" placeholder="例如 y=x^2 或 x^2/25+y^2/9=1" maxlength="350" spellcheck="false" autocomplete="off" inputmode="text">
         <div class="symbols" aria-label="常用数学符号">
-          <button type="button" data-symbol="^2">x²</button><button type="button" data-symbol="/">a/b</button>
-          <button type="button" data-symbol="sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
-          <button type="button" data-symbol="π">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
-          <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=">=</button>
+          <button type="button" data-symbol="^2" data-python-symbol="**2">x²</button><button type="button" data-symbol="/">a/b</button>
+          <button type="button" data-symbol="sqrt()" data-python-symbol="math.sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
+          <button type="button" data-symbol="π" data-python-symbol="math.pi">π</button><button type="button" data-symbol="sin()" data-python-symbol="math.sin()" data-caret="-1">sin</button>
+          <button type="button" data-symbol="log()" data-python-symbol="math.log()" data-caret="-1">log</button><button type="button" data-symbol="=" data-python-symbol="==">=</button>
         </div>
+        <section id="python-reference" class="syntax-reference" aria-label="Python 数学表达式语法说明" hidden>
+          <p><strong>Python 数学语法</strong> · 本地解析、离线绘图，无需安装 Python。常用 <code>math.</code> 前缀可省略。</p>
+          <table>
+            <tbody>
+              <tr><th scope="row">变量与运算</th><td><code>x</code> 为自变量，支持 <code>+ - * / **</code> 和括号。乘法写 <code>*</code>，乘方写 <code>**</code>（<code>^</code> 为按位异或）。例如 <code>2*x**2 - 1/(x+1)</code>。</td></tr>
+              <tr><th scope="row">根式与指数</th><td><code>math.sqrt(x)</code>、<code>abs(x)</code> / <code>math.fabs(x)</code>、<code>math.exp(x)</code>、<code>pow(x, 2)</code>。</td></tr>
+              <tr><th scope="row">对数</th><td><code>math.log(x)</code> 是自然对数；<code>math.log(x, 2)</code> 表示以 2 为底，真数在前；<code>math.log2(x)</code>、<code>math.log10(x)</code> 分别以 2、10 为底。</td></tr>
+              <tr><th scope="row">三角函数</th><td><code>math.sin(x)</code>、<code>math.cos(x)</code>、<code>math.tan(x)</code>；反三角函数 <code>math.asin(x)</code>、<code>math.acos(x)</code>、<code>math.atan(x)</code>。角度单位为弧度。</td></tr>
+              <tr><th scope="row">常数与数值</th><td><code>math.pi</code>、<code>math.e</code>、<code>math.tau</code>（2π）；支持小数和科学计数法，例如 <code>0.5</code>、<code>1e-3</code>。</td></tr>
+              <tr><th scope="row">函数与方程</th><td>可直接写 <code>x**2</code>，也可写 <code>y = x**2</code> 或 <code>lambda x: x**2</code>。含 x、y 的二次方程使用 <code>==</code>，例如 <code>x**2/25 + y**2/9 == 1</code>。</td></tr>
+            </tbody>
+          </table>
+          <p>每次输入一条数学表达式，按实数范围绘图。此模式支持上表中的语法子集；暂不支持 <code>import</code>、<code>def</code>、循环、数组、条件表达式、<code>//</code> 和 <code>%</code>。</p>
+          <div class="examples"><span>填入示例</span><button type="button" data-python-example="x**2 + math.sin(x)">复合函数</button><button type="button" data-python-example="math.log(x, 2)">对数函数</button><button type="button" data-python-example="x**2/25 + y**2/9 == 1">椭圆</button></div>
+        </section>
       </div>
       <p id="formula-error" class="error" role="alert" hidden></p>
       <div class="dialog-actions">

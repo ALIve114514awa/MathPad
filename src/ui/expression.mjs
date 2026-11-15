@@ -1,9 +1,8 @@
 const functions = {
-  sqrt: [1, 'sqrt'], nroot: [2, 'nroot'], abs: [1, 'abs'], exp: [1, 'exp'],
-  ln: [1, 'ln'], lg: [1, 'lg'], log: [[1, 2], 'log'],
-  sin: [1, 'sin'], cos: [1, 'cos'], tan: [1, 'tan'],
-  asin: [1, 'asin'], acos: [1, 'acos'], atan: [1, 'atan'],
-  sgn: [1, 'sgn'],
+  sqrt: 1, nroot: 2, abs: 1, exp: 1,
+  ln: 1, lg: 1, log: [1, 2],
+  sin: 1, cos: 1, tan: 1,
+  asin: 1, acos: 1, atan: 1, sgn: 1,
 };
 
 const tokenPattern = /\d+(?:\.\d*)?|\.\d+|nroot|sqrt|abs|exp|log|ln|lg|asin|acos|atan|sin|cos|tan|sgn|pi|[a-zπℯ+*/^(),-]/gy;
@@ -55,9 +54,9 @@ function parse(input, variables = ['x', 'y']) {
         args.push(sum());
       }
       expect(')');
-      const [arity, name] = functions[token];
+      const arity = functions[token];
       if (![arity].flat().includes(args.length)) throw new Error(`${token} 的参数数量有误。`);
-      return { call: name === 'log' && args.length === 1 ? 'lg' : name, args };
+      return { call: token === 'log' && args.length === 1 ? 'lg' : token, args };
     }
     if (token && /^[\d.]/.test(token) && Number.isFinite(Number(token))) return { number: token };
     if (variables.includes(token)) return { variable: token };
@@ -128,6 +127,14 @@ function degree(node) {
   return Number.isSafeInteger(exponent) && exponent >= 0 ? (exponent === 0 ? 0 : left * exponent) : Infinity;
 }
 
+function variableDenominator(node) {
+  if (node.op === '/' && degree(node.right) > 0) return true;
+  if (node.op === '^' && degree(node.left) > 0 && node.right.sign === '-' && Number(node.right.child?.number) > 0) return true;
+  return Boolean((node.child && variableDenominator(node.child)) ||
+    (node.args && node.args.some(variableDenominator)) ||
+    (node.op && (variableDenominator(node.left) || variableDenominator(node.right))));
+}
+
 function emit(node) {
   if (node.op) return `(${emit(node.left)}${node.op}${emit(node.right)})`;
   if (node.child) return `(${node.sign}${emit(node.child)})`;
@@ -148,7 +155,10 @@ export function compileFormula(text) {
     return { kind: 'function', polynomial: Number.isFinite(degree(right)), expression: emit(right) };
   }
   const left = parse(parts[0]);
+  if (variableDenominator(left) || variableDenominator(right)) {
+    throw new Error('公式已读取，但当前暂不支持含变量分母的隐式方程。这不是手写识别失败；可改写为 y=f(x) 后分别绘图。');
+  }
   const maxDegree = Math.max(degree(left), degree(right));
-  if (!maxDegree || maxDegree > 2) throw new Error('请写成 y=f(x)，或输入含 x、y 的二次方程。');
+  if (!maxDegree || maxDegree > 2) throw new Error('公式已读取，但当前仅支持 y=f(x) 或含 x、y 的二次方程；这条隐式方程超出了当前绘图范围。');
   return { kind: 'equation', polynomial: true, expression: `${emit(left)}=${emit(right)}` };
 }

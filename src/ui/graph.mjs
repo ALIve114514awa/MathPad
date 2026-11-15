@@ -80,7 +80,13 @@ export function createGraph(api) {
       const scale = Math.max(14 / width, 10 / height);
       api.setCoordSystem(-scale * width / 2, scale * width / 2, -scale * height / 2, scale * height / 2);
     },
-    resize(width, height) { api.setSize(width, height); },
+    resize(width, height) { api.setSize(Math.round(width), Math.round(height)); api.recalculateEnvironments(); },
+    clear() {
+      api.setRepaintingActive(false);
+      try { for (const name of api.getAllObjectNames()) if (api.exists(name)) api.deleteObject(name); nextId = 1; }
+      finally { api.setRepaintingActive(true); }
+      this.resetView();
+    },
     plot(formula, rgb) {
       const name = `mp${nextId++}`;
       const command = formula.kind === 'function' ? `${name}(x)=${formula.expression}` : `${name}:${formula.expression}`;
@@ -111,5 +117,88 @@ export function createGraph(api) {
     },
     remove(name) { api.deleteObject(name); },
     show(name, visible) { api.setVisible(name, visible); },
+    teach(derivative, onMove) {
+      // Uppercase labels make coordinate pairs points rather than vectors in GeoGebra.
+      const prefix = `Lesson${nextId++}`;
+      const names = {};
+      let changing = false;
+      let observedX = NaN;
+      function create(key, definition) {
+        const name = `${prefix}${key}`;
+        if (!api.evalCommand(`${name}${definition.startsWith(':') ? '' : '='}${definition}`) || !api.exists(name)) {
+          console.warn('Derivative construction failed:', name, definition, api.getAllObjectNames().filter((item) => item.startsWith(prefix)));
+          throw new Error('无法建立导数演示，请重新计算后再试。');
+        }
+        names[key] = name;
+        api.setFixed(name, true, false);
+        api.setLabelVisible(name, false);
+        return name;
+      }
+      function dispose() {
+        if (names.p) api.unregisterObjectUpdateListener(names.p);
+        for (const name of Object.values(names).reverse()) if (api.exists(name)) api.deleteObject(name);
+        if (api.exists(derivative.name)) api.setVisible(derivative.name, derivative.visible);
+      }
+      try {
+        const p = create('p', 'Point(xAxis)');
+        const k = create('k', '1');
+        const a = create('a', '(0,0)');
+        const b = create('b', '(1,1)');
+        const c = create('c', '(1,0)');
+        create('d', '(0,1)');
+        for (const key of ['a', 'b', 'c', 'd']) api.setFixed(names[key], false, false);
+        create('t', `:y=${k}*(x-x(${p}))+y(${a})`);
+        create('s', `Line(${a},${b})`);
+        create('dx', `Segment(${a},${c})`); create('dy', `Segment(${c},${b})`);
+        api.setFixed(p, false, true);
+        for (const [key, caption, color] of [
+          ['p', 'a', [34, 92, 212]], ['a', 'A', [34, 92, 212]],
+          ['b', 'B', [130, 64, 166]], ['d', 'f′(a)', [199, 104, 19]],
+        ]) {
+          api.setCaption(names[key], caption); api.setLabelStyle(names[key], 3);
+          api.setPointSize(names[key], key === 'p' ? 6 : 5); api.setColor(names[key], ...color);
+          api.setLayer(names[key], key === 'p' ? 7 : 6);
+        }
+        for (const key of ['s', 'dx', 'dy']) { api.setColor(names[key], 130, 64, 166); api.setLineStyle(names[key], 1); api.setLineThickness(names[key], 3); }
+        api.setColor(names.t, 17, 124, 91); api.setLineThickness(names.t, 4);
+        api.registerObjectUpdateListener(p, () => {
+          const x = api.getXcoord(p);
+          if (!changing && Number.isFinite(x) && Math.abs(x - observedX) > 1e-9) { observedX = x; onMove(x); }
+        });
+        return {
+          focus(state) {
+            if (!state?.pointValid) return;
+            const { width, height } = view();
+            const values = [0, state.y, state.nextY, state.slope].filter(Number.isFinite);
+            const low = Math.min(...values), high = Math.max(...values);
+            const margin = Math.max(.8, (high - low) * .15);
+            const scale = Math.max(6 / width, (high - low + 2 * margin) / height);
+            const cx = state.a + state.h / 2, cy = (low + high) / 2;
+            api.setCoordSystem(cx - width * scale / 2, cx + width * scale / 2, cy - height * scale / 2, cy + height * scale / 2);
+          },
+          update(state, { tangent = true, derivativeVisible = true, visible = true } = {}) {
+            changing = true;
+            api.setRepaintingActive(false);
+            try {
+              observedX = state.a;
+              if (Math.abs(api.getXcoord(p) - state.a) > 1e-10) api.setCoords(p, state.a, 0);
+              if (state.pointValid) api.setCoords(a, state.a, state.y);
+              if (state.secantValid) { api.setCoords(b, state.a + state.h, state.nextY); api.setCoords(c, state.a + state.h, state.y); }
+              if (state.tangentValid) api.setCoords(names.d, state.a, state.slope);
+              api.setValue(k, state.tangentValid ? state.slope : 0);
+              const shown = { p: visible, a: visible && state.pointValid, b: visible && state.secantValid,
+                d: visible && derivativeVisible && state.tangentValid, t: visible && tangent && state.tangentValid,
+                s: visible && state.secantValid, dx: visible && state.secantValid, dy: visible && state.secantValid };
+              for (const [key, name] of Object.entries(names)) {
+                api.setVisible(name, Boolean(shown[key]));
+                if (['p', 'a', 'b', 'd'].includes(key)) api.setLabelVisible(name, Boolean(shown[key]));
+              }
+              api.setVisible(derivative.name, derivativeVisible && derivative.visible);
+            } finally { api.setRepaintingActive(true); changing = false; }
+          },
+          dispose,
+        };
+      } catch (error) { dispose(); throw error; }
+    },
   };
 }

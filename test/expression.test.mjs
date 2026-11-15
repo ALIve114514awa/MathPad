@@ -28,3 +28,11 @@ test('rejects malformed formulas, arbitrary commands and unsupported variables',
     assert.throws(() => compileFormula(invalid), invalid);
   }
 });
+
+test('distinguishes recognized rational implicit equations from handwriting failures', () => {
+  assert.throws(() => compileFormula('((2)/((x)^(2)))+((4)/((y)^(2)))=3'), /含变量分母的隐式方程/);
+  assert.throws(() => compileFormula('2*x^(-2)+4*y^(-2)=3'), /含变量分母的隐式方程/);
+  assert.equal(compileFormula('x^2/2+y^2/4=3').kind, 'equation');
+  assert.equal(compileFormula('y=2*abs(x)/sqrt(3*x^2-2)').kind, 'function');
+  assert.equal(compileFormula('y=-2*abs(x)/sqrt(3*x^2-2)').kind, 'function');
+});

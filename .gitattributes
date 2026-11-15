@@ -1,3 +1,4 @@
+* text=auto eol=lf
 *.exe -text
 *.dll -text
 *.deflate -text
@@ -6,3 +7,5 @@
 *.dat -text
 *.asar -text
 /runtime/** binary
+/vendor/geogebra/** binary
+/docs/licenses/** -whitespace

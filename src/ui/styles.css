@@ -25,6 +25,8 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .ready { color: var(--muted); font-size: 12px; text-align: right; }
 .ready[data-state="ready"] { color: #126247; }
 .ready[data-state="error"] { color: #a33328; }
+.heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.heading-actions button { font-size: 12px; }
 .workspace-tabs { display: flex; gap: 7px; }
 .workspace-tabs button { flex: 1; font-size: 13px; }
 .workspace-tabs button[aria-pressed="true"] { background: #e9f0ff; color: #214bb1; border-color: #aac0f0; font-weight: 600; }
@@ -53,9 +55,58 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .terms-table th, .terms-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
 .terms-table th { color: var(--muted); }
 .terms-table td:last-child { overflow-wrap: anywhere; }
-.workspace { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(210px, 265px) minmax(0, 1fr); gap: 12px; }
+.workspace { display: grid; flex: 1; min-height: 0; grid-template-columns: var(--sidebar-width, 300px) 8px minmax(0, 1fr); gap: 6px; }
+.workspace:has(#derivative-teaching:not([hidden])) { grid-template-columns: var(--sidebar-width, 300px) 8px minmax(0, 1fr) 8px var(--lesson-width, 280px); }
+.lesson-resizer { display: none; }
+.workspace:has(#derivative-teaching:not([hidden])) .lesson-resizer { display: block; }
+.sidebar-resizer { cursor: col-resize; touch-action: none; position: relative; border-radius: 6px; align-self: stretch; }
+.sidebar-resizer::after { content: ''; position: absolute; inset: 0 2px; background: #cbd7eb; border-radius: 5px; transition: background .15s; }
+.sidebar-resizer:hover::after, .sidebar-resizer:focus-visible::after { background: #7b9adf; }
+body.resizing-sidebar { user-select: none; cursor: col-resize; }
+body.resizing-sidebar .graph { pointer-events: none; }
 .sidebar, .plot { background: white; border: 1px solid var(--border); border-radius: 11px; min-width: 0; min-height: 0; }
 .sidebar { padding: 12px; overflow: auto; }
+.sidebar-tabs { display: flex; gap: 5px; margin-bottom: 12px; position: sticky; top: -12px; background: white; padding: 8px 0; z-index: 1; }
+.sidebar-tabs button { flex: 1; font-size: 12px; }
+.sidebar-tabs button[aria-pressed="true"] { color: #214bb1; background: #e9f0ff; border-color: #aac0f0; }
+.sidebar-panel .calculation-intro h2 { font-size: 18px; }
+.sidebar-panel .calculation-form { gap: 8px; margin-top: 12px; }
+.sidebar-panel .formula-card { padding: 8px; }
+.sidebar-panel .formula-math { font-size: 15px; }
+.sidebar-panel .calculation-output[data-stale="true"] { opacity: .55; }
+.lesson-examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 10px 0; }
+.lesson-examples button { padding: 5px; font-size: 11px; }
+.lesson-examples > span { grid-column: 1 / -1; }
+.input-reference { font-size: 12px; color: var(--muted); margin: 10px 0; }
+.input-reference summary { cursor: pointer; }
+.input-reference p { margin-top: 7px; }
+.calculation-status[data-state="ready"] { color: #126247; }
+.calculation-status[data-state="loading"], .calculation-status[data-state="stale"] { color: var(--muted); }
+.derivative-teaching { overflow: auto; background: white; padding: 12px; font-size: 12px; }
+.lesson-heading, .lesson-actions, .lesson-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.lesson-heading { justify-content: space-between; position: sticky; top: -12px; padding: 8px 0; margin: -4px 0 8px; background: white; z-index: 1; }
+.lesson-heading strong { font-size: 14px; }
+.lesson-heading button, .lesson-actions button { font-size: 11px; padding: 4px 6px; }
+.lesson-legend { margin: 6px 0; font-size: 11px; }
+.lesson-legend span::before { content: ''; display: inline-block; width: 13px; height: 3px; background: currentColor; margin-right: 4px; vertical-align: middle; }
+.legend-source { color: #225cd4; }.legend-derivative { color: #c76813; }.legend-tangent { color: #117c5b; }.legend-secant { color: #8240a6; }
+.lesson-question { color: #344d7a; line-height: 1.4; margin: 6px 0; }
+.lesson-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 14px 0 8px; }
+.lesson-controls label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px; min-width: 0; }
+.lesson-controls input[type="number"] { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 5px; padding: 3px 5px; }
+.lesson-controls input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 3px 0 6px; accent-color: #8240a6; }
+.lesson-controls output { text-align: right; font-variant-numeric: tabular-nums; }
+.lesson-actions label { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-size: 11px; }
+.lesson-readout { display: grid; gap: 5px; font-variant-numeric: tabular-nums; line-height: 1.6; margin: 12px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #f5f7fc; overflow-wrap: anywhere; }
+.lesson-actions { gap: 7px 5px; }
+.lesson-actions button { flex: 1 1 auto; }
+.lesson-notice { line-height: 1.4; color: #38506c; margin-top: 4px; }
+.lesson-notice[data-invalid="true"] { color: #a33328; }
+.lesson-definition { border-top: 1px solid var(--border); margin-top: 7px; padding-top: 6px; overflow-wrap: anywhere; }
+.lesson-definition summary { cursor: pointer; color: #344d7a; }
+.lesson-definition table { width: 100%; border-collapse: collapse; text-align: right; margin: 5px 0; font-size: 11px; }
+.lesson-definition .formula-math { font-size: 13px; }
+.lesson-definition th, .lesson-definition td { padding: 3px 5px; border-bottom: 1px solid var(--border); }
 .formula-entry { width: 100%; padding: 9px 10px; display: flex; align-items: center; gap: 8px; text-align: left; background: #f4f7ff; border-color: #c5d4f8; color: #214bb1; font-weight: 700; }
 .plus { font-size: 21px; }
 .formula-entry small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted); }
@@ -64,7 +115,7 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .muted, .empty { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .empty { padding: 9px 0 0; }
 .curves, .results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
-.curve-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 5px; align-items: center; border: 1px solid var(--border); border-radius: 7px; padding: 5px; min-width: 0; }
+.curve-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 5px; align-items: center; border: 1px solid var(--border); border-radius: 7px; padding: 5px; min-width: 0; }
 .curve-row[data-selected="true"] { border-color: #a6baf2; background: #f6f8ff; }
 .curve-row[data-visible="false"] .curve-formula { color: var(--muted); opacity: .7; }
 .curve-row input { margin: 3px; accent-color: var(--accent); }
@@ -81,7 +132,9 @@ button:disabled, select:disabled { cursor: default; opacity: .5; }
 .plot { position: relative; display: flex; flex-direction: column; overflow: hidden; }
 .plot-heading { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .plot-heading button { font-size: 12px; }
-.graph { flex: 1; min-height: 0; overflow: hidden; }
+.graph { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.graph-mount { position: absolute; inset: 0; width: 100% !important; height: 100% !important; overflow: hidden; }
+.graph-mount > .applet_scaler { width: 100% !important; height: 100% !important; }
 .graph-message { position: absolute; inset: 46px 0 25px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; padding: 15px; text-align: center; background: white; }
 .graph-message span { color: var(--muted); font-size: 13px; }
 footer { color: var(--muted); font-size: 10px; padding: 5px 10px; border-top: 1px solid var(--border); }
@@ -100,15 +153,35 @@ dialog::backdrop { background: #16274961; }
 label[for="formula-text"] { display: block; color: #203556; font-size: 12px; margin-bottom: 3px; }
 #formula-text { width: 100%; padding: 6px 8px; border: 1px solid #b8c7de; border-radius: 7px; font: 16px "Cambria Math", "Segoe UI", sans-serif; }
 #formula-text::placeholder { color: #62738e; }
+#formula-text[data-syntax="python"] { font-family: Consolas, "Cascadia Code", monospace; }
+.syntax-reference { margin-top: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: #f6f8fd; font-size: 12px; color: #203556; }
+.syntax-reference p { margin: 0 0 8px; line-height: 1.6; }
+.syntax-reference table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.syntax-reference th, .syntax-reference td { border-top: 1px solid var(--border); padding: 6px 0; text-align: left; vertical-align: top; line-height: 1.6; }
+.syntax-reference th { width: 82px; padding-right: 9px; }
+.syntax-reference code { font: 12px Consolas, "Cascadia Code", monospace; overflow-wrap: anywhere; color: #234b99; }
+.syntax-reference .examples { margin: 0; }
 .dialog-actions { justify-content: flex-end; margin-top: 9px; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
 .primary:hover:not(:disabled) { background: #1f49b5; }
 
+@media (min-width: 621px) and (max-width: 820px) {
+  .workspace:has(#derivative-teaching:not([hidden])) { grid-template-columns: var(--sidebar-width, 220px) 8px minmax(0, 1fr); grid-template-rows: minmax(160px, 1fr) minmax(140px, .75fr); }
+  .workspace:has(#derivative-teaching:not([hidden])) #input-sidebar,
+  .workspace:has(#derivative-teaching:not([hidden])) #sidebar-resizer { grid-row: 1 / -1; }
+  .workspace:has(#derivative-teaching:not([hidden])) .plot { grid-column: 3; grid-row: 1; }
+  .workspace:has(#derivative-teaching:not([hidden])) .derivative-teaching { grid-column: 3; grid-row: 2; }
+  .workspace:has(#derivative-teaching:not([hidden])) .lesson-resizer { display: none; }
+}
+
 @media (max-width: 620px) {
   body { padding: 9px; gap: 8px; }
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(215px, 3fr) minmax(140px, 2fr); gap: 7px; }
-  .plot { grid-row: 1; }
-  .sidebar { grid-row: 2; padding: 8px; }
+  .workspace { display: flex; flex-direction: column; overflow: auto; gap: 7px; }
+  .workspace .sidebar-resizer { display: none !important; }
+  .plot { order: -1; flex: none; height: 480px; }
+  .sidebar { flex: none; padding: 8px; overflow: visible; }
+  .derivative-teaching { order: -1; max-height: 460px; overflow: auto; }
+  .lesson-heading { top: -8px; }
   .calculation-workspace { padding: 12px; }
   .calculation-form { grid-template-columns: minmax(0, 1fr); }
 }

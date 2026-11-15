@@ -1,6 +1,7 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.8",
   "platform": "win32-x64",
+  "runtimeDirectory": "runtime",
   "files": [
     {
       "path": "runtime/chrome_100_percent.pak",
@@ -324,8 +325,53 @@
     },
     {
       "path": "runtime/resources/app.asar",
-      "size": 8366014,
-      "sha256": "70bb121d1ea168a62ccb2f7a40fd3af79c69127ccf127756658eab23343c8491"
+      "size": 53273442,
+      "sha256": "96623fad872ae465b7fc4467ea506bca780074e937c6819e92926b9b8e491077"
+    },
+    {
+      "path": "runtime/resources/licenses/Commander-LICENSE.txt",
+      "size": 1098,
+      "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+    },
+    {
+      "path": "runtime/resources/licenses/decimal.js-LICENSE.txt",
+      "size": 1104,
+      "sha256": "3108b546bcff5d346923a82f48b2d252ca722f9088076db6d145f6b67757ad6c"
+    },
+    {
+      "path": "runtime/resources/licenses/GeoGebra-LICENSE.txt",
+      "size": 13169,
+      "sha256": "bfc6b86dafb93713c3e144527ff4279137a076cf501efe27feee23c5a5ccba2d"
+    },
+    {
+      "path": "runtime/resources/licenses/GeoGebra-NOTICE.md",
+      "size": 975,
+      "sha256": "31da5da32ac4eb73d915facacde0d0715e14274357219c8b04e6d8da7c148f64"
+    },
+    {
+      "path": "runtime/resources/licenses/KaTeX-LICENSE.txt",
+      "size": 1107,
+      "sha256": "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3"
+    },
+    {
+      "path": "runtime/resources/licenses/Nerdamer-bundle-NOTICE.txt",
+      "size": 207,
+      "sha256": "e886c98ebe2f5f679806e37d170f23089aa14794256e59dbee57e2d4baa0e0da"
+    },
+    {
+      "path": "runtime/resources/licenses/Nerdamer-LICENSE.txt",
+      "size": 10442,
+      "sha256": "673784bac89d742bb109ec48051b437f70020b86f37af7a14fff445f24d3a6e4"
+    },
+    {
+      "path": "runtime/resources/licenses/README.md",
+      "size": 1543,
+      "sha256": "1973c820225eba578a67e57628c76705ed7046589e105a6c87363a04118bb050"
+    },
+    {
+      "path": "runtime/resources/THIRD_PARTY_NOTICES.md",
+      "size": 3158,
+      "sha256": "8fe8c49a3a78eb656be66d012c27071d688265e324f68c87f9899cbbf7a00f2b"
     },
     {
       "path": "runtime/resources.pak",
@@ -364,23 +410,23 @@
     },
     {
       "path": "runtime/engine-1.deflate",
-      "size": 62283148,
-      "sha256": "d83dadc38fd0acbe356b2d231e89a2e61a965c0a3d5b9f2dbc36c673dddd0076"
+      "size": 62283173,
+      "sha256": "eced3d778a75f01238c257cf511379af8e0b06a1afda2b3967d006e088da33a7"
     },
     {
       "path": "runtime/engine-2.deflate",
-      "size": 48409411,
-      "sha256": "6581c7c3b89cbdb665dc3bc88bd424831cb12614c519946699a95340f7f581a4"
+      "size": 48398557,
+      "sha256": "cbdc8e322bfd847b8c5176c3c2716d611e651cc15989be6b16c21fcf4c1d5cce"
     },
     {
       "path": "runtime/engine.json",
       "size": 170,
-      "sha256": "f139c8fb9406004e2061ab40988e53515e3efeea717177d87d95ce46e0cad5a6"
+      "sha256": "50e2a72b1af280152822f5b29886b99c194233f19cc8433387c4472d5251d8ab"
     },
     {
       "path": "MathPad.exe",
-      "size": 6656,
-      "sha256": "66de587b08ccdbfdf828cc318de2ee4b3b48fa3c2458d3d2f0ea95fc76b0d48d"
+      "size": 24576,
+      "sha256": "a63b6de42ec5f64d34dd0768c72879e645bdcd19f538e347f564e52eaf674fc3"
     }
   ]
 }

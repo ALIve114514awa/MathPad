@@ -1,15 +1,25 @@
-const { app, BrowserWindow, Menu, protocol, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, Tray, protocol, screen, session } = require('electron');
+const { mkdirSync } = require('node:fs');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
+const { createGeoGebraAssets } = require('./geogebra-assets.cjs');
+const { createFloatingWindow } = require('./floating-window.cjs');
 
 const origin = 'mathpad://app';
 const files = new Map([
   ['/', ['index.html', 'text/html']],
+  ['/floating.html', ['floating.html', 'text/html']],
+  ['/floating.css', ['floating.css', 'text/css']],
+  ['/floating.js', ['floating.js', 'text/javascript']],
   ['/styles.css', ['styles.css', 'text/css']],
   ['/renderer.mjs', ['renderer.mjs', 'text/javascript']],
   ['/expression.mjs', ['expression.mjs', 'text/javascript']],
+  ['/python-expression.mjs', ['python-expression.mjs', 'text/javascript']],
   ['/mathml.mjs', ['mathml.mjs', 'text/javascript']],
   ['/graph.mjs', ['graph.mjs', 'text/javascript']],
+  ['/derivative-model.mjs', ['derivative-model.mjs', 'text/javascript']],
+  ['/derivative-lesson.mjs', ['derivative-lesson.mjs', 'text/javascript']],
+  ['/sidebar-resize.mjs', ['sidebar-resize.mjs', 'text/javascript']],
   ['/calculator.mjs', ['calculator.mjs', 'text/javascript']],
   ['/calculations.mjs', ['calculations.mjs', 'text/javascript']],
   ['/calculation-worker.js', ['calculation-worker.js', 'text/javascript']],
@@ -22,10 +32,24 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let panel;
+let tray;
+let floating;
 let quitting = false;
 
+// Honor Electron's explicit profile argument before acquiring the instance lock.
+const userDataDirectory = app.commandLine.getSwitchValue('user-data-dir');
+if (userDataDirectory) {
+  mkdirSync(path.resolve(userDataDirectory), { recursive: true });
+  app.setPath('userData', path.resolve(userDataDirectory));
+}
+if (process.platform === 'win32') app.setAppUserModelId('MathPad.Desktop');
+
+function releasePanelTopmost() {
+  if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(false);
+}
+
 function revealPanel() {
-  if (!panel) return;
+  if (!panel || panel.isDestroyed() || quitting) return;
   if (panel.isMinimized()) panel.restore();
   const bounds = panel.getBounds();
   if (!screen.getAllDisplays().some(({ workArea: area }) => (
@@ -36,7 +60,46 @@ function revealPanel() {
   }
   panel.show();
   panel.setAlwaysOnTop(true, 'pop-up-menu');
+  panel.moveTop();
   panel.focus();
+  floating?.raise();
+  setTimeout(() => { if (panel && !panel.isDestroyed() && !panel.isFocused()) releasePanelTopmost(); }, 150);
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed() || quitting) return;
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { id: 'show-panel', label: '显示面板', click: revealPanel },
+    { id: 'hide-panel', label: '收起面板', click: () => panel?.hide() },
+    { type: 'separator' },
+    { id: 'show-floating', label: '显示悬浮球', type: 'checkbox', checked: floating?.visible ?? true, click: item => item.checked ? floating?.show() : floating?.hide() },
+    { id: 'reset-floating', label: '重置悬浮球位置', click: () => floating?.resetPosition() },
+    { type: 'separator' },
+    { id: 'quit-mathpad', label: '完全退出 Math Pad', click: () => app.quit() },
+  ]));
+}
+
+function floatingMenu(window) {
+  return new Promise(resolve => Menu.buildFromTemplate([
+    { label: '显示 Math Pad', click: revealPanel },
+    { label: '重置位置', click: () => floating?.resetPosition() },
+    { label: '隐藏悬浮球', click: () => floating?.hide() },
+    { type: 'separator' },
+    { label: '完全退出 Math Pad', click: () => app.quit() },
+  ]).popup({ window, callback: resolve }));
+}
+
+function createTray() {
+  try {
+    tray = new Tray(path.join(__dirname, '..', 'assets', 'mathpad.ico'));
+    tray.setToolTip(`Math Pad v${app.getVersion()} · 点击显示面板，右键完全退出`);
+    updateTrayMenu();
+    tray.on('click', revealPanel);
+    tray.on('double-click', revealPanel);
+  } catch (error) {
+    tray?.destroy(); tray = undefined;
+    console.warn('Tray unavailable; closing the panel will quit:', error.message);
+  }
 }
 
 function positionPanel() {
@@ -50,17 +113,30 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', revealPanel);
-  app.on('before-quit', () => { quitting = true; });
+  app.on('activate', revealPanel);
+  app.on('before-quit', () => { quitting = true; floating?.destroy(); });
+  app.on('will-quit', () => { tray?.destroy(); tray = undefined; });
   app.whenReady().then(() => {
+    const geogebraAsset = createGeoGebraAssets();
     protocol.handle('mathpad', async (request) => {
       const url = new URL(request.url);
+      if (url.host !== 'app') return new Response('Not found', { status: 404 });
+      const asset = geogebraAsset(url.pathname);
       const font = /^\/fonts\/(KaTeX_[a-zA-Z0-9_-]+\.(?:woff2?|ttf))$/.exec(url.pathname);
-      const file = url.host === 'app' && (files.get(url.pathname)
-        || (font && [`../../node_modules/katex/dist/fonts/${font[1]}`, font[1].endsWith('woff2') ? 'font/woff2' : font[1].endsWith('woff') ? 'font/woff' : 'font/ttf']));
-      if (!file) return new Response('Not found', { status: 404 });
-      return new Response(await readFile(path.join(__dirname, 'ui', file[0])), {
-        headers: { 'Content-Type': `${file[1]}; charset=utf-8` },
-      });
+      const file = files.get(url.pathname)
+        || (font && [`../../node_modules/katex/dist/fonts/${font[1]}`, font[1].endsWith('woff2') ? 'font/woff2' : font[1].endsWith('woff') ? 'font/woff' : 'font/ttf']);
+      if (!asset && !file) return new Response('Not found', { status: 404 });
+      try {
+        return new Response(await readFile(asset ? asset.filename : path.join(__dirname, 'ui', file[0])), {
+          headers: {
+            'Content-Type': asset ? asset.contentType : `${file[1]}; charset=utf-8`,
+            'Cache-Control': 'no-store',
+          },
+        });
+      } catch (error) {
+        console.warn('Local resource unavailable:', url.pathname, error.message);
+        return new Response('Local resource unavailable', { status: 404 });
+      }
     });
 
     session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -70,7 +146,8 @@ if (!app.requestSingleInstanceLock()) {
       minWidth: 440,
       minHeight: 470,
       backgroundColor: '#f0f3f8',
-      alwaysOnTop: true,
+      icon: path.join(__dirname, '..', 'assets', 'mathpad.ico'),
+      alwaysOnTop: false,
       autoHideMenuBar: true,
       webPreferences: {
         nodeIntegration: false,
@@ -79,18 +156,29 @@ if (!app.requestSingleInstanceLock()) {
       },
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      { label: 'Math Pad', submenu: [{ label: '收起面板', click: () => panel.hide() }, { label: '退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
+      { label: 'Math Pad', submenu: [{ label: '收起面板', click: () => panel.hide() }, { label: '完全退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
     ]));
     panel.webContents.on('will-navigate', (event) => event.preventDefault());
+    panel.on('blur', releasePanelTopmost);
+    panel.on('hide', releasePanelTopmost);
     panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     panel.on('close', (event) => {
       if (quitting) return;
+      if (!tray || tray.isDestroyed()) { app.quit(); return; }
       event.preventDefault();
       panel.hide();
     });
+    createTray();
     positionPanel();
+    // Preload the workbench without showing or focusing it on cold startup.
     panel.loadURL(`${origin}/`);
-    revealPanel();
+    try {
+      floating = createFloatingWindow({ origin, onActivate: revealPanel, onMenu: floatingMenu, onVisibility: updateTrayMenu });
+      updateTrayMenu();
+    } catch (error) {
+      console.warn('Floating button unavailable; use the tray to show Math Pad:', error.message);
+      if (!tray) revealPanel();
+    }
   });
 }

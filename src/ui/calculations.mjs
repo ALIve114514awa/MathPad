@@ -53,7 +53,7 @@ export function createCalculator(cas) {
     const normalized = normalizeFormula(formula).replace(/^(?:y|[a-z]\(x\))=/, '');
     const ast = parseExpression(normalized, ['x', 'a', 'b', 'c', 'k', 'm', 'n', 'p', 'q', 'r']);
     const source = toCAS(ast);
-    const output = { title: '导函数与导数', formulas: [entry('原函数 f(x)', source)], steps: [], notices: [], plots: [] };
+    const output = { formulas: [entry('原函数 f(x)', source)], steps: [], notices: [], plots: [] };
     const seen = new Set();
     visit(ast, (node) => {
       const rule = ruleNames[node.op ?? node.call];
@@ -72,6 +72,12 @@ export function createCalculator(cas) {
     const graphFormula = (text) => text.replace(/\blog\(/g, 'ln(').replace(/\bsign\(/g, 'sgn(').replace(/\bpi\b/g, 'π');
     output.plots.push({ label: '绘制原函数', formula: graphFormula(source) });
     output.plots.push({ label: '绘制导函数', formula: graphFormula(derived) });
+    output.teaching = {
+      source: normalized,
+      derivative: graphFormula(output.formulas[1].expression),
+      point: point.trim() ? Number(approx(expression(point))) : 0,
+      order,
+    };
     output.notices.push('公式在原函数的实数可导区间成立。a、b、c、k、m、n、p、q、r 视为常数；三角函数使用弧度。');
     if (point.trim()) {
       const x0 = expression(point);
@@ -112,7 +118,7 @@ export function createCalculator(cas) {
 
   function sequence({ mode, first = '1', step = '1', ratio = '2', multiplier = '2', increment = '1', term = 'n^2', count = 10 }) {
     const total = integer(count);
-    const output = { title: '数列与前 N 项和', formulas: [], steps: [], notices: [], terms: [], plots: [] };
+    const output = { formulas: [], steps: [], notices: [], terms: [], plots: [] };
     let general;
     let sum;
     let at;
@@ -161,7 +167,7 @@ export function createCalculator(cas) {
       sum = cas.sum(cas(summand), cas('k'), cas('1'), cas('n')).text();
       output.steps.push({ text: '将通项中的下标换成 k，再从第 1 项累加到第 n 项。', tex: `S_n=\\sum_{k=1}^{n}\\left(${tex(summand)}\\right)` });
       if (/\bsum\(/.test(sum)) {
-        visit(parseExpression(normalized, ['n']), (node) => {
+        visit(ast, (node) => {
           if (!/\bsum\(/.test(sum) || node.op !== '^' || /\bn\b/.test(toCAS(node.left)) || !/\bn\b/.test(toCAS(node.right))) return;
           const q = toCAS(node.left);
           if (cas(q).eq(0) || cas(q).eq(1)) return;

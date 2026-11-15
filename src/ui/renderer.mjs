@@ -1,7 +1,10 @@
 import { compileFormula } from './expression.mjs';
+import { pythonToFormula } from './python-expression.mjs';
 import { readMathML } from './mathml.mjs';
 import { availableProperties, createGraph } from './graph.mjs';
 import { initializeCalculator } from './calculator.mjs';
+import { initializeDerivativeLesson } from './derivative-lesson.mjs';
+import { initializeSidebarResize } from './sidebar-resize.mjs';
 
 const $ = (id) => document.getElementById(id);
 const colors = [[34, 92, 212], [175, 65, 36], [17, 124, 91], [130, 64, 166], [165, 110, 10], [11, 112, 144]];
@@ -23,6 +26,11 @@ let handState = 'idle';
 let handTimer;
 let handGeneration = 0;
 let draftVersion = 0;
+let derivativeCurves = [];
+let pendingDerivative;
+let resizeFrame;
+let editingName;
+const lesson = initializeDerivativeLesson(setCurveVisibility);
 
 function showText(element, text) {
   element.textContent = text;
@@ -37,7 +45,7 @@ function loadScript(url) {
       clearTimeout(timer);
       script.remove();
       scripts.delete(url);
-      reject(new Error('无法连接组件服务。'));
+      reject(new Error(url.startsWith('/') ? '本地组件文件不可用。' : '无法连接组件服务。'));
     }
     const timer = setTimeout(failed, 16000);
     script.onload = () => { clearTimeout(timer); resolve(); };
@@ -50,20 +58,25 @@ function loadScript(url) {
 }
 
 function resizeGraph() {
-  const { clientWidth, clientHeight } = graphHost;
-  if (graph && clientWidth > 0 && clientHeight > 0) graph.resize(clientWidth, clientHeight);
+  if (resizeFrame !== undefined) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = undefined;
+    const { clientWidth, clientHeight } = graphHost;
+    if (graph && clientWidth > 0 && clientHeight > 0) graph.resize(clientWidth, clientHeight);
+  });
 }
 
 async function loadGraph() {
   $('graph-state').dataset.state = 'loading';
   $('graph-state').textContent = '正在加载绘图组件…';
   $('graph-message-title').textContent = '正在准备坐标系';
-  $('graph-message-detail').textContent = '正在连接 GeoGebra。';
+  $('graph-message-detail').textContent = '正在加载本地绘图资源。';
   $('retry-graph').hidden = true;
   const target = document.createElement('div');
+  target.className = 'graph-mount';
   graphHost.replaceChildren(target);
   try {
-    await loadScript('https://www.geogebra.org/apps/deployggb.js');
+    await loadScript('/geogebra/deployggb.js');
     graph = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('绘图组件加载超时。')), 60000);
       try {
@@ -73,13 +86,14 @@ async function loadGraph() {
           showToolBar: false, showMenuBar: false, showAlgebraInput: false,
           showResetIcon: false, showZoomButtons: true, showFullscreenButton: false,
           enableRightClick: false, enableShiftDragZoom: true, allowStyleBar: false,
+          disableAutoScale: true, scale: 1,
           appletOnLoad: (api) => {
             clearTimeout(timer);
             if (!target.isConnected) return;
             try { resolve(createGraph(api)); } catch (error) { reject(error); }
           },
         }, true);
-        applet.setHTML5Codebase('https://www.geogebra.org/apps/5.4.920.0/web3d/');
+        applet.setHTML5Codebase(new URL('/geogebra/HTML5/5.0/web3d/', window.location.href).href);
         applet.inject(target);
       } catch (error) {
         clearTimeout(timer);
@@ -92,6 +106,7 @@ async function loadGraph() {
     $('reset-view').disabled = false;
     resizeGraph();
     graph.resetView();
+    if (pendingDerivative) synchronizeDerivative(pendingDerivative);
   } catch (error) {
     graph = undefined;
     target.remove();
@@ -99,7 +114,7 @@ async function loadGraph() {
     $('graph-state').dataset.state = 'error';
     $('graph-state').textContent = '绘图组件不可用';
     $('graph-message-title').textContent = '无法加载坐标系';
-    $('graph-message-detail').textContent = '请检查网络连接，然后重新加载。';
+    $('graph-message-detail').textContent = '请确认程序已完整解压，然后重新加载；仍无法使用时请重新解压完整运行包。';
     $('retry-graph').hidden = false;
   }
   updateSubmit();
@@ -177,10 +192,17 @@ function setMode(next) {
   mode = next;
   $('mode-hand').setAttribute('aria-pressed', String(mode === 'hand'));
   $('mode-keyboard').setAttribute('aria-pressed', String(mode === 'keyboard'));
+  $('mode-python').setAttribute('aria-pressed', String(mode === 'python'));
   $('hand-area').hidden = mode !== 'hand';
-  $('formula-label').textContent = mode === 'hand' ? '识别结果（可修改）' : '输入公式';
+  $('python-reference').hidden = mode !== 'python';
+  $('formula-label').textContent = mode === 'hand' ? '识别结果（可修改）' : mode === 'python' ? 'Python 数学表达式' : '输入公式';
+  input.placeholder = mode === 'python' ? '例如 x**2 + math.sin(x) 或 lambda x: x**2' : '例如 y=x^2 或 x^2/25+y^2/9=1';
+  input.dataset.syntax = mode;
+  if (mode === 'python') input.setAttribute('aria-describedby', 'python-reference');
+  else input.removeAttribute('aria-describedby');
+  showText($('formula-error'), '');
   if (mode === 'hand' && !hand) createHand();
-  if (mode === 'keyboard') input.focus();
+  if (mode !== 'hand') input.focus();
   updateSubmit();
 }
 
@@ -192,6 +214,7 @@ function selectionChanged() {
   property.disabled = entries.length === 0;
   $('analyze').disabled = true;
   $('intersect').disabled = selected.size !== 2;
+  $('differentiate-selected').disabled = selected.size !== 1 || curves.get(name).kind !== 'function';
   showText($('analysis-message'), '');
 }
 
@@ -229,12 +252,16 @@ function renderResults() {
   }).reverse());
 }
 
-function addCurveRow(curve) {
+function addCurveRow(curve, previousRow) {
   const row = document.createElement('li');
   row.className = 'curve-row';
-  row.dataset.visible = 'true';
+  row.dataset.name = curve.name;
+  row.dataset.syntax = curve.inputMode || 'keyboard';
+  row.dataset.visible = String(curve.visible);
+  row.dataset.selected = String(selected.has(curve.name));
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
+  checkbox.checked = selected.has(curve.name);
   checkbox.setAttribute('aria-label', `选择 ${curve.text}`);
   checkbox.onchange = () => {
     if (checkbox.checked) selected.add(curve.name);
@@ -251,34 +278,28 @@ function addCurveRow(curve) {
   dot.style.backgroundColor = `rgb(${curve.color.join(',')})`;
   formula.append(dot, curve.text);
 
+  const edit = document.createElement('button');
+  edit.type = 'button'; edit.dataset.edit = ''; edit.textContent = '编辑';
+  edit.setAttribute('aria-label', `编辑 ${curve.text}`);
+  edit.onclick = () => openFormula(curve);
+
   const visibility = document.createElement('button');
   visibility.type = 'button';
-  visibility.textContent = '隐藏';
+  visibility.dataset.visibility = '';
+  visibility.textContent = curve.visible ? '隐藏' : '显示';
   visibility.onclick = () => {
-    curve.visible = !curve.visible;
-    graph.show(curve.name, curve.visible);
-    row.dataset.visible = String(curve.visible);
-    visibility.textContent = curve.visible ? '隐藏' : '显示';
-    refreshResultVisibility();
+    setCurveVisibility(curve, !curve.visible);
   };
 
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.textContent = '删除';
   remove.onclick = () => {
-    for (const [key, result] of results) {
-      if (result.sources.includes(curve.name)) removeResult(key);
-    }
-    graph.remove(curve.name);
-    curves.delete(curve.name);
-    selected.delete(curve.name);
-    row.remove();
-    updateCount();
-    selectionChanged();
-    renderResults();
+    removeCurve(curve.name);
   };
-  row.append(checkbox, formula, visibility, remove);
-  $('curves').append(row);
+  row.append(checkbox, formula, edit, visibility, remove);
+  if (previousRow) previousRow.replaceWith(row);
+  else $('curves').append(row);
   updateCount();
 }
 
@@ -293,7 +314,7 @@ function calculate(command, sources, title, evaluate, emptyMessage) {
     const result = evaluate();
     removeResult(key);
     if (result.items.length) {
-      results.set(key, { ...result, title, sources: sources.map(({ name }) => name) });
+      results.set(key, { ...result, command, title, sources: sources.map(({ name }) => name) });
       refreshResultVisibility();
     }
     showText($('analysis-message'), result.items.length ? '' : emptyMessage(result.range));
@@ -303,12 +324,20 @@ function calculate(command, sources, title, evaluate, emptyMessage) {
   }
 }
 
-$('open-formula').onclick = () => {
-  input.value = '';
+function openFormula(curve) {
+  if (dialog.open) return;
+  editingName = curve?.name;
+  input.value = curve?.text || '';
+  draftVersion++;
+  $('formula-title').textContent = curve ? '编辑曲线' : '新增一条曲线';
+  submit.textContent = curve ? '保存修改并绘图' : '插入并绘图';
+  if (curve && derivativeCurves.some((item) => item.name === curve.name)) { calculator.suspendDerivative(); lesson.pause(); }
   showText($('formula-error'), '');
   dialog.showModal();
-  setMode('hand');
-};
+  setMode(curve?.inputMode === 'python' ? 'python' : curve ? 'keyboard' : 'hand');
+  if (curve) input.focus();
+}
+$('open-formula').onclick = () => openFormula();
 function closeFormula() {
   mode = 'keyboard';
   ++handGeneration;
@@ -317,6 +346,9 @@ function closeFormula() {
   handState = 'idle';
   handCanvas.replaceChildren();
   dialog.close();
+  editingName = undefined;
+  $('formula-title').textContent = '新增一条曲线';
+  submit.textContent = '插入并绘图';
 }
 $('dismiss-formula').onclick = $('cancel-formula').onclick = closeFormula;
 dialog.oncancel = (event) => {
@@ -325,6 +357,14 @@ dialog.oncancel = (event) => {
 };
 $('mode-hand').onclick = () => setMode('hand');
 $('mode-keyboard').onclick = () => setMode('keyboard');
+$('mode-python').onclick = () => setMode('python');
+for (const button of document.querySelectorAll('[data-python-example]')) {
+  button.onclick = () => {
+    input.value = button.dataset.pythonExample;
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  };
+}
 $('clear-hand').onclick = () => {
   input.value = '';
   createHand();
@@ -340,7 +380,8 @@ input.oninput = () => {
 };
 for (const button of document.querySelectorAll('[data-symbol]')) {
   button.onclick = () => {
-    input.setRangeText(button.dataset.symbol, input.selectionStart, input.selectionEnd, 'end');
+    const symbol = mode === 'python' ? button.dataset.pythonSymbol || button.dataset.symbol : button.dataset.symbol;
+    input.setRangeText(symbol, input.selectionStart, input.selectionEnd, 'end');
     const caret = input.selectionEnd + Number(button.dataset.caret ?? 0);
     input.setSelectionRange(caret, caret);
     input.focus();
@@ -351,20 +392,98 @@ function plotFormula() {
   if (submit.disabled) return;
   const text = input.value.trim();
   try {
-    addExpression(text);
+    const inputMode = mode === 'python' ? 'python' : 'keyboard';
+    if (editingName) editExpression(editingName, text, inputMode);
+    else addExpression(text, undefined, inputMode);
     closeFormula();
   } catch (error) {
     showText($('formula-error'), error.message || '未能绘图。');
     input.focus();
   }
 }
-function addExpression(text) {
+function addExpression(text, colorOverride, inputMode = 'keyboard') {
   if (!graph) throw new Error('绘图组件尚未就绪，请等待坐标系加载完成后再试。');
-  const color = colors[colorIndex % colors.length];
-  const curve = { ...graph.plot(compileFormula(text), color), text, color, visible: true };
+  const color = colorOverride || colors[colorIndex % colors.length];
+  const formula = inputMode === 'python' ? pythonToFormula(text) : text;
+  const curve = { ...graph.plot(compileFormula(formula), color), text, formula, inputMode, color, visible: true };
   colorIndex++;
   curves.set(curve.name, curve);
   addCurveRow(curve);
+  return curve;
+}
+function editExpression(name, text, inputMode = 'keyboard') {
+  const previous = curves.get(name);
+  if (!previous) throw new Error('原曲线已被删除或替换，请重新选择需要编辑的曲线。');
+  // Plot and validate first so an invalid edit never destroys the existing curve.
+  const formula = inputMode === 'python' ? pythonToFormula(text) : text;
+  const replacement = { ...graph.plot(compileFormula(formula), previous.color), text, formula, inputMode, color: previous.color, visible: previous.visible };
+  graph.show(replacement.name, replacement.visible);
+  const previousRow = document.querySelector(`.curve-row[data-name="${name}"]`);
+  const associated = Array.from(results.entries()).filter(([, result]) => result.sources.includes(name));
+  const isTeachingSource = derivativeCurves[0]?.name === name;
+  if (derivativeCurves.some((curve) => curve.name === name)) {
+    lesson.clear(); pendingDerivative = undefined;
+    calculator.invalidateDerivative(isTeachingSource && replacement.kind === 'function' ? replacement.formula : undefined);
+  }
+  for (const [key] of associated) removeResult(key);
+  graph.remove(name);
+  const entries = Array.from(curves, ([key, curve]) => key === name ? [replacement.name, replacement] : [key, curve]);
+  curves.clear(); for (const [key, curve] of entries) curves.set(key, curve);
+  if (selected.delete(name)) selected.add(replacement.name);
+  derivativeCurves = derivativeCurves.map((curve) => curve.name === name ? replacement : curve);
+  addCurveRow(replacement, previousRow); selectionChanged();
+  for (const [, result] of associated) {
+    const sources = result.sources.map((source) => curves.get(source === name ? replacement.name : source));
+    if (result.command === 'Intersect') {
+      const [a, b] = sources;
+      calculate('Intersect', sources, `交点 · ${a.text} 与 ${b.text}`, () => graph.intersect(a, b),
+        (range) => range ? '修改后，当前横轴区间内未找到交点。' : '修改后未找到离散交点。');
+    } else {
+      const property = availableProperties(sources[0].type).find(([command]) => command === result.command);
+      if (property) calculate(result.command, sources, `${property[1]} · ${sources[0].text}`,
+        () => graph.analyze(sources[0], result.command), () => '修改后的曲线未找到此项结果。');
+      else showText($('analysis-message'), '修改后的曲线类型不支持原分析操作，原结果已清除。');
+    }
+  }
+  renderResults();
+}
+function setCurveVisibility(curve, visible) {
+  curve.visible = visible; graph.show(curve.name, visible);
+  const row = document.querySelector(`.curve-row[data-name="${curve.name}"]`);
+  if (row) { row.dataset.visible = String(visible); row.querySelector('[data-visibility]').textContent = visible ? '隐藏' : '显示'; }
+  refreshResultVisibility(); lesson.refresh();
+}
+function removeCurve(name) {
+  if (!curves.has(name)) return;
+  if (lesson.owns(name)) lesson.clear();
+  for (const [key, result] of results) if (result.sources.includes(name)) removeResult(key);
+  graph.remove(name); curves.delete(name); selected.delete(name);
+  document.querySelector(`.curve-row[data-name="${name}"]`)?.remove();
+  updateCount(); selectionChanged(); renderResults();
+}
+function synchronizeDerivative(result) {
+  pendingDerivative = result;
+  if (!graph) { $('derivative-status').textContent = '导数已算出，坐标系就绪后自动同步。'; return; }
+  const created = [];
+  try {
+    const teaching = result.teaching;
+    // Validate both formulas before changing any existing construction.
+    compileFormula(teaching.source); compileFormula(teaching.derivative);
+    created.push(addExpression(teaching.source, [34, 92, 212]));
+    created.push(addExpression(teaching.derivative, [199, 104, 19]));
+    if (teaching.order > 1) created.push(addExpression(result.plots[1].formula, [130, 64, 166]));
+    lesson.start(graph, created[0], created[1], teaching);
+    for (const curve of derivativeCurves) removeCurve(curve.name);
+    derivativeCurves = created;
+    $('derivative-status').textContent = teaching.order > 1 ? '已同步原函数、一阶导函数和所选高阶导函数；切线与变化率演示始终使用一阶导数。' : '原函数与一阶导函数已同步到右侧坐标系。';
+    pendingDerivative = undefined;
+    $('derivative-status').dataset.state = 'ready';
+  } catch (error) {
+    for (const curve of created) removeCurve(curve.name);
+    lesson.clear(); pendingDerivative = undefined;
+    $('derivative-status').textContent = `公式结果已保留，暂不能同步教学图像：${error.message} 含参数时请先换成具体数值。`;
+    $('derivative-status').dataset.state = 'error';
+  }
 }
 $('formula-form').onsubmit = (event) => {
   event.preventDefault();
@@ -384,7 +503,27 @@ $('intersect').onclick = () => {
     (range) => range ? '当前横轴区间内未找到交点。' : '未找到离散交点。');
 };
 $('reset-view').onclick = () => graph.resetView();
+$('clear-all').onclick = () => {
+  pendingDerivative = undefined;
+  calculator.reset(); lesson.clear(); closeFormula();
+  graph?.clear();
+  curves.clear(); results.clear(); selected.clear(); derivativeCurves = []; colorIndex = 0;
+  $('curves').replaceChildren(); $('results').replaceChildren();
+  input.value = ''; draftVersion++;
+  showText($('formula-error'), ''); showText($('analysis-message'), '');
+  updateCount(); selectionChanged(); updateSubmit();
+};
 $('retry-graph').onclick = loadGraph;
+$('differentiate-selected').onclick = () => {
+  const curve = curves.get(selected.values().next().value);
+  if (curve?.kind === 'function') calculator.derive({ formula: curve.formula || curve.text, point: '1', order: 1 });
+};
 new ResizeObserver(resizeGraph).observe(graphHost);
-initializeCalculator(addExpression);
+window.addEventListener('resize', resizeGraph);
+initializeSidebarResize();
+const calculator = initializeCalculator(addExpression, {
+  onDerivative: synchronizeDerivative,
+  onEdit: () => { pendingDerivative = undefined; lesson.clear(); },
+  onWorkspace: (id) => { if (id !== 'graph-workspace') lesson.pause(); },
+});
 loadGraph();

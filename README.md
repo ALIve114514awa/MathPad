@@ -1,70 +1,54 @@
 # Math Pad
 
-在 PowerPoint 编辑或同屏全屏放映时，用置顶窗口手写公式、画多条曲线、查看交点与曲线特性。
+PPT 旁的悬浮数学面板：用手写、键盘或 Python 数学表达式输入公式、绘制多条曲线、分析交点与圆锥曲线，并在同一个工作台演示导数与数列。当前版本 **0.4.8**，交付 **Windows 10 / 11 x64** 便携运行文件。
 
-## 开始使用
+## 直接运行
 
-1. 下载整个仓库（**Code → Download ZIP**）并完整解压，或从 [Releases](https://github.com/ALIve114514awa/MathPad/releases) 下载 `MathPad-win32-x64-0.3.0.zip`。两种方式均有根目录 `MathPad.exe` 入口。
-2. 从 [WindowsFloatingButton v1.12 发布页](https://github.com/david419kr/WindowsFloatingButton/releases/tag/v1.12) 获取 `configurable_floating_button.exe`，将它放在可写目录中并打开。
-3. 在悬浮按钮的齿轮菜单里点 **Browse**，选择解压目录内的 `MathPad.exe`，点 **Apply**。把按钮拖到屏幕上方合适的位置。
-4. 点悬浮按钮，再点 **新增公式**，即可在应用内的大画布上用鼠标或触控笔书写。检查或修改下面的识别结果，然后点 **插入并绘图**。也可切换到 **键盘** 输入。
+1. 下载或克隆**整个 main 分支**，解压到可写目录。可使用 GitHub 的 **Code → Download ZIP**。不需要安装 Node.js、npm、Java 或额外的悬浮按钮。
+2. 双击根目录 **`MathPad.exe`**。保留同级的 `portable-manifest.json` 和完整 `runtime/`；首次启动会校验并还原引擎。
+3. 默认只显示当前屏幕**左边缘中间的 f(x) 悬浮球**，不自动弹出主面板。贴边移开鼠标约 0.8 秒会收起，靠近时展开，点击后打开面板。
+4. 点「新增公式」输入，点击「插入并绘图」。关闭主窗口会收起到托盘并保留本次图形；再次点击球、托盘或入口可唤回同一窗口。右键托盘选择「完全退出 Math Pad」结束后台进程。
 
-窗口右上角的关闭按钮会收起面板，再点悬浮按钮即可继续使用当前图形。按 `Ctrl+Q` 可退出 Math Pad。
+根目录入口和当前运行文件均随仓库提交，使用普通 Git 文件，不依赖 Git LFS。**Release 中既有的独立 ZIP 尚未更新**，请以 main 分支为准。
 
-公式弹窗最大宽度为 780 像素，手写区域随窗口高度增大，最高 430 像素。识别期间暂停提交，失败时可重试或改用键盘。当前版本使用应用内 WIRIS 手写，不会打开微软数学输入面板。
+键盘输入、绘图、数列、求导和排版均可离线使用。**手写是 WIRIS 在线演示，需要联网，笔画会发送给 WIRIS。** 服务不可用时可切换键盘。微软数学输入面板已不再使用。
 
-仓库根目录的 `MathPad.exe` 是一个小型 Windows x64 启动器，`runtime/` 随仓库完整提供 Electron、应用资源、运行库和压缩引擎。首次启动会在 `runtime/` 中还原并校验引擎，后续直接启动，不需要安装 Node.js、npm、Git LFS，也不需要在启动时下载运行文件。请保留完整文件夹并解压到可写目录。`portable-manifest.json` 记录随包文件的大小和 SHA-256；启动器源码位于 `native/Launcher.cs`。
+## 功能
 
-Release ZIP 是常规 Electron 便携版，解压后直接双击根目录 `MathPad.exe`。悬浮按钮可指向任一种目录的入口。
+- 多曲线共同绘图，可独立显隐、删除、二次编辑；求交点、零点、极值以及圆锥曲线的焦点、中心、顶点、准线或渐近线。
+- Python 模式支持 `x**2`、`math.sin(x)`、`math.log(x, 2)`、`lambda x: ...` 与 `==` 二次方程；输入框下方提供完整语法表和可填入的示例，本地解析，无需安装 Python。
+- 支持精确数列计算和 1 至 4 阶符号求导，保留分式与根式，检查点值的原式定义域。
+- 原函数、导函数、切线和割线同屏展示；拖动取点、播放 h → 0，观察差商与斜率。
+- 左右边栏可分别调整宽度；「清空全部」重置曲线、分析、教学动画和输入。
 
-![应用内的大手写画布](docs/screenshots/handwriting.png)
+[功能、示例与支持范围](docs/FEATURES.md) · [Python 输入语法](docs/PYTHON_INPUT.md) · [环境要求、离线边界与自检](docs/COMPATIBILITY.md) · [开发和打包](docs/DEVELOPMENT.md)
 
-## 示例
+![导数输入、坐标系与演示边栏](docs/screenshots/derivative-sidebars.png)
 
-| 操作 | 输入与结果 |
-| --- | --- |
-| 求交点 | 输入 `y=x^2`、`y=x+2`，勾选两条曲线，点 **求交点**，得到 `(-1, 1)` 和 `(2, 4)` |
-| 椭圆焦点 | 输入 `x^2/25+y^2/9=1`，勾选曲线并选择 **焦点**，得到 `(-4, 0)` 和 `(4, 0)` |
-| 双曲线渐近线 | 输入 `x^2/4-y^2/9=1`，勾选曲线并选择 **渐近线**，得到 `y=±3x/2` |
-| 一般函数 | 可用 `sqrt(x)`、`abs(x)`、`exp(x)`、`ln(x)`、`log(2,x)`、`sin(x)` 等。数值求交按当前横轴范围计算，结果区显示使用的区间 |
+## 仓库结构
 
-键盘输入可用 `y=…`、`f(x)=…` 或直接输入关于 `x` 的表达式。二次方程可同时含 `x` 和 `y`。选择一条曲线可查看它的特性，选择两条可求交点。
-
-## 数列和导数
-
-顶部可切换 **函数绘图 / 数列 / 导函数与导数**，切换时保留各区输入和结果。
-
-- 数列支持等差、等比、已知通项和 `aₙ₊₁ = p aₙ + q` 的一阶线性递推。给出通项、前 n 项和、第 N 项、前 N 项和以及前 12 项预览。内置平方数列、裂项求和、错位相减和递推示例，并显示对应方法的关键步骤。
-- 导数支持 1 至 4 阶符号求导，可输入一个点计算精确导数和切线方程。支持多项式、分式、根式、绝对值、指数、对数、三角与反三角函数及其复合，也支持 `x^x`。`a、b、c、k、m、n、p、q、r` 按常数参数处理。
-- 原函数、导函数和切线可一键加入同一坐标系。含未赋值参数的表达式暂不能直接绘图。三角函数使用弧度，`ln(x)` 为自然对数，`lg(x)` / `log(x)` 为常用对数，`log(2,x)` 为以 2 为底的对数。
-- 分式、根式等优先保留精确结果，另列可计算的数值近似。求导展示所用的积、商、链式等规则；点值和切线会检查原式的分母、对数定义域和绝对值分界。分段函数及复杂分界点仍需人工判断，提示不会替代证明。
-
-本地使用 [Nerdamer 2.0.1](https://nerdamer.com/docs/) 进行符号计算，使用 [KaTeX](https://katex.org/) 排版公式，二者都随运行包提供。**数列、求导和公式排版可离线使用**。计算在独立工作线程执行，可取消；超过 10 秒会停止并保留已有结果。
-
-N 从 1 开始，最大 1000。一般通项优先尝试闭式求和；没有闭式时最多精确累加 100 项。部分通项会保留有限求和形式或提示不支持，不能保证任意递推和任意函数都有闭式结果。原式中的未定义项即使约分后消失，也会被拒绝。
-
-## 开发和打包
-
-在 Windows x64 使用 Node.js 24、npm。开发运行和常规 ZIP 打包不需要 C# 编译器；生成仓库根目录便携入口时，使用系统 .NET Framework 的 x64 C# 编译器。启动器使用 Windows 自带的 .NET Framework 4.x。
-
-```powershell
-npm ci
-npm test
-npm run test:app
-npm start
-npm run make
-npm run portable
-npm run verify:portable
+```text
+MathPad.exe                 Windows 根目录启动入口
+portable-manifest.json      运行文件及 SHA-256 清单
+runtime/                    唯一的当前运行版，含压缩引擎与第三方许可
+src/                        Electron 主进程、悬浮球和界面源码
+assets/                     应用图标
+vendor/geogebra/             固定版本的官方离线绘图资源与校验清单
+native/                     C# 启动器源码
+scripts/                    构建、自检和集成测试
+test/                       单元测试
+docs/                       功能、开发、兼容性、许可和截图
+.github/workflows/          干净 Windows 环境的自动验证
 ```
 
-`npm run make` 将常规 ZIP 写入 `out/make/zip/win32/x64/`；`npm run portable` 另外更新根目录启动器、`runtime/` 和文件清单。运行引擎拆成两个小于 100 MiB 的压缩块，随普通 Git 文件提交，避免源码 ZIP 缺少大文件。更新这些发布文件前请退出已运行的程序。如果构建环境预先下载了 Electron 官方 ZIP，可以用 `MATHPAD_ELECTRON_ZIP_DIR` 指定包含该 ZIP 的目录。
+旧运行目录、构建产物、测试日志、引擎缓存和 `node_modules/` 均不上传。旧运行文件只在本机 `out/` 中保留备份。
 
-`npm test` 验证精确计算、导数规则、定义域与输入边界。`npm run test:app` 在独立测试配置中先断网验证本地数列、导数及公式排版，再恢复网络验证绘图和应用内大画布。日志与截图写入系统临时目录。
+## 校验与许可
 
-## 在线组件
+无 Node.js 的电脑也可用 `MathPad.exe --verify` 检查清单文件；退出码 0 为通过，1 为缺失、损坏或清单无效，不会打开应用。详细命令见[兼容性说明](docs/COMPATIBILITY.md)。
 
-应用的桌面运行文件已随包提供。绘图仍从网络加载 GeoGebra，当前固定到已验证的 5.4.920.0 组件版本；手写笔画由 WIRIS 在线处理，需要联网使用。本版本接入 MathType Hand 演示服务用于联调，正式部署需使用获得授权的服务。GeoGebra 官方组件用于非商业场景。
+本项目按个人与课堂**非商业教学原型**提供。GeoGebra 官方组件仍按其非商业条款使用；MathType Hand 的生产部署需要有效授权。当前启动器未作发行者代码签名；Windows 设备的应用控制策略仍可能影响运行。原创代码尚未选择开源许可证，仓库公开不等于所有组件都可自由商用。
 
-[MathType Hand 接入文档](https://docs.wiris.com/en_US/mathtype-html-generic-integration/embed-mathtype-hand-in-a-web-page) · [GeoGebra 许可](https://www.geogebra.org/license)
+[第三方声明](THIRD_PARTY_NOTICES.md) · [随包许可原文](docs/licenses/README.md) · [GeoGebra 官方许可](https://www.geogebra.org/license) · [MathType Hand 要求](https://docs.wiris.com/en_US/mathtype-html-generic-integration/embed-mathtype-hand-in-a-web-page)
 
-Made with GeoGebra® · [www.geogebra.org](https://www.geogebra.org/)
+Made with GeoGebra® · https://www.geogebra.org/

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -16,15 +17,57 @@ internal sealed class EngineManifest
     public string[] chunks { get; set; }
 }
 
+internal sealed class PortableManifest
+{
+    public string runtimeDirectory { get; set; }
+    public string platform { get; set; }
+    public PortableFile[] files { get; set; }
+}
+
+internal sealed class PortableFile
+{
+    public string path { get; set; }
+    public long size { get; set; }
+    public string sha256 { get; set; }
+}
+
 internal static class Launcher
 {
     [STAThread]
-    private static void Main()
+    private static int Main(string[] arguments)
     {
+        bool verifyOnly = arguments.Length == 1 && arguments[0] == "--verify";
         try
         {
             var root = AppDomain.CurrentDomain.BaseDirectory;
-            var runtime = Path.Combine(root, "runtime");
+            var portable = new JavaScriptSerializer().Deserialize<PortableManifest>(File.ReadAllText(Path.Combine(root, "portable-manifest.json")));
+            var runtimeDirectory = String.IsNullOrEmpty(portable.runtimeDirectory) ? "runtime" : portable.runtimeDirectory;
+            if (Path.GetFileName(runtimeDirectory) != runtimeDirectory || runtimeDirectory == "." || runtimeDirectory == "..")
+                throw new IOException("运行目录清单无效。");
+            if (portable.platform != "win32-x64" || portable.files == null || portable.files.Length == 0)
+                throw new IOException("运行文件清单无效，请重新完整下载。");
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in portable.files)
+            {
+                if (String.IsNullOrEmpty(file.path) || Path.IsPathRooted(file.path) ||
+                    (file.path != "MathPad.exe" && !file.path.StartsWith(runtimeDirectory + "/", StringComparison.Ordinal)))
+                    throw new IOException("运行文件清单包含无效路径。");
+                string filename = Path.GetFullPath(Path.Combine(root, file.path));
+                if (!filename.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !names.Add(filename))
+                    throw new IOException("运行文件清单包含无效或重复路径。");
+                if (!File.Exists(filename) || new FileInfo(filename).Length != file.size)
+                    throw new IOException("运行文件缺失或不完整：" + file.path);
+                if (verifyOnly)
+                    using (var input = File.OpenRead(filename))
+                    using (var sha = SHA256.Create())
+                        if (Hex(sha.ComputeHash(input)) != file.sha256)
+                            throw new IOException("运行文件校验失败：" + file.path);
+            }
+            foreach (var required in new[] { "MathPad.exe", runtimeDirectory + "/engine.json", runtimeDirectory + "/resources/app.asar" })
+                if (!names.Contains(Path.GetFullPath(Path.Combine(root, required))))
+                    throw new IOException("运行文件清单缺少必要文件：" + required);
+            if (verifyOnly) return 0;
+            var runtime = Path.Combine(root, runtimeDirectory);
             var manifest = new JavaScriptSerializer().Deserialize<EngineManifest>(File.ReadAllText(Path.Combine(runtime, "engine.json")));
             var engine = Path.Combine(runtime, "MathPadHost.exe");
             var ready = Path.Combine(runtime, ".engine-ready");
@@ -68,13 +111,42 @@ internal static class Launcher
                 }
                 finally { mutex.ReleaseMutex(); }
             }
-            Process.Start(new ProcessStartInfo(engine) { WorkingDirectory = runtime, UseShellExecute = false });
+            var start = new ProcessStartInfo(engine, JoinArguments(arguments)) { WorkingDirectory = runtime, UseShellExecute = false };
+            // Shells and developer tools may set these for their own Node/Electron process.
+            // They must not turn the packaged application into a Node shell or disable ASAR.
+            foreach (var name in new[] { "ELECTRON_RUN_AS_NODE", "ELECTRON_NO_ASAR", "NODE_OPTIONS", "NODE_PATH" })
+                start.EnvironmentVariables.Remove(name);
+            Process.Start(start);
+            return 0;
         }
         catch (Exception error)
         {
-            MessageBox.Show("无法启动 Math Pad。请将整个仓库下载并解压到可写目录，保留 runtime 文件夹。\n\n" + error.Message,
+            if (verifyOnly) { Console.Error.WriteLine(error.Message); return 1; }
+            MessageBox.Show("无法启动 Math Pad。请将整个运行包下载并解压到可写目录，保留 portable-manifest.json 指定的运行文件夹。\n\n" + error.Message,
                 "Math Pad", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 1;
         }
+    }
+
+    private static string JoinArguments(string[] arguments)
+    {
+        var result = new StringBuilder();
+        foreach (var argument in arguments)
+        {
+            if (result.Length > 0) result.Append(' ');
+            result.Append('"');
+            int backslashes = 0;
+            foreach (char character in argument)
+            {
+                if (character == '\\') { backslashes++; continue; }
+                if (character == '"') result.Append('\\', backslashes * 2 + 1);
+                else result.Append('\\', backslashes);
+                result.Append(character);
+                backslashes = 0;
+            }
+            result.Append('\\', backslashes * 2).Append('"');
+        }
+        return result.ToString();
     }
 
     private static string Hex(byte[] bytes)
