@@ -41,3 +41,8 @@ jobs:
         run: |
           $env:MATHPAD_TEST_APP_ROOT = Join-Path $PWD 'runtime/resources/app.asar'
           npm run test:python
+      - name: Verify settings in the packaged app
+        shell: pwsh
+        run: |
+          $env:MATHPAD_TEST_APP_ROOT = Join-Path $PWD 'runtime/resources/app.asar'
+          npm run test:settings

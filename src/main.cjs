@@ -1,9 +1,10 @@
-const { app, BrowserWindow, Menu, Tray, protocol, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, protocol, screen, session } = require('electron');
 const { mkdirSync } = require('node:fs');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { createGeoGebraAssets } = require('./geogebra-assets.cjs');
 const { createFloatingWindow } = require('./floating-window.cjs');
+const { createSettings, loadFloatingPosition } = require('./settings.cjs');
 
 const origin = 'mathpad://app';
 const files = new Map([
@@ -13,6 +14,7 @@ const files = new Map([
   ['/floating.js', ['floating.js', 'text/javascript']],
   ['/styles.css', ['styles.css', 'text/css']],
   ['/renderer.mjs', ['renderer.mjs', 'text/javascript']],
+  ['/settings-page.mjs', ['settings-page.mjs', 'text/javascript']],
   ['/expression.mjs', ['expression.mjs', 'text/javascript']],
   ['/python-expression.mjs', ['python-expression.mjs', 'text/javascript']],
   ['/mathml.mjs', ['mathml.mjs', 'text/javascript']],
@@ -34,6 +36,7 @@ protocol.registerSchemesAsPrivileged([
 let panel;
 let tray;
 let floating;
+let settings;
 let quitting = false;
 
 // Honor Electron's explicit profile argument before acquiring the instance lock.
@@ -48,6 +51,11 @@ function releasePanelTopmost() {
   if (panel && !panel.isDestroyed()) panel.setAlwaysOnTop(false);
 }
 
+function setPanelTopmost(enabled) {
+  if (enabled) panel.setAlwaysOnTop(true, 'pop-up-menu');
+  else releasePanelTopmost();
+}
+
 function revealPanel() {
   if (!panel || panel.isDestroyed() || quitting) return;
   if (panel.isMinimized()) panel.restore();
@@ -59,21 +67,85 @@ function revealPanel() {
     positionPanel();
   }
   panel.show();
-  panel.setAlwaysOnTop(true, 'pop-up-menu');
+  setPanelTopmost(settings.values.panelTopmost !== 'never');
   panel.moveTop();
   panel.focus();
   floating?.raise();
-  setTimeout(() => { if (panel && !panel.isDestroyed() && !panel.isFocused()) releasePanelTopmost(); }, 150);
+  setTimeout(() => {
+    if (panel && !panel.isDestroyed() && settings.values.panelTopmost === 'temporary' && !panel.isFocused()) {
+      releasePanelTopmost();
+    }
+  }, 150);
+}
+
+function hasTray() { return tray && !tray.isDestroyed(); }
+function canRecoverPanel() { return hasTray() || (settings.values.showBall && floating?.available); }
+function hidePanel() { if (canRecoverPanel()) panel?.hide(); }
+
+function publishSettings() {
+  if (!quitting && panel && !panel.isDestroyed()) panel.webContents.send('settings:changed', settings.values);
+}
+
+function changeSettings(save) {
+  const previous = settings.values;
+  save();
+  const next = settings.values;
+  if (next.panelTopmost !== previous.panelTopmost) {
+    setPanelTopmost(next.panelTopmost === 'always' && panel.isVisible() && !panel.isMinimized());
+  }
+  try { floating?.configure(next); }
+  catch (error) { console.warn('Could not configure the floating button:', error.message); }
+  if (!canRecoverPanel() && !panel.isVisible()) revealPanel();
+  updateTrayMenu();
+  publishSettings();
+}
+
+function settingsError(error) {
+  if (!error.code) return error.message;
+  if (['EACCES', 'EPERM', 'EBUSY', 'EISDIR'].includes(error.code)) return '无法保存设置。请检查配置文件是否可写且未被占用。';
+  return `无法保存设置（${error.code}）。`;
+}
+
+function resetBallPosition() {
+  if (!floating) throw new Error('悬浮球当前不可用。');
+  floating.resetPosition();
+}
+
+function nativeSetting(action) {
+  try { action(); }
+  catch (error) {
+    updateTrayMenu();
+    panel.webContents.send('settings:error', settingsError(error));
+    revealPanel();
+  }
+}
+
+function registerSettingsHandlers() {
+  function handle(channel, action) {
+    ipcMain.handle(channel, (event, data) => {
+      if (event.sender !== panel?.webContents || !event.senderFrame || event.senderFrame.parent
+          || event.senderFrame.url !== `${origin}/`) throw new Error('Settings are only available in the workbench.');
+      try { return action(data); }
+      catch (error) { return { error: settingsError(error), values: settings.values }; }
+    });
+  }
+  handle('settings:load', legacy => {
+    settings.migrateWidths(legacy);
+    return { values: settings.values, error: settings.readError };
+  });
+  handle('settings:update', patch => { changeSettings(() => settings.update(patch)); return {}; });
+  handle('settings:reset', () => { changeSettings(settings.reset); return {}; });
+  handle('settings:reset-ball-position', () => { resetBallPosition(); return {}; });
 }
 
 function updateTrayMenu() {
-  if (!tray || tray.isDestroyed() || quitting) return;
+  if (!hasTray() || quitting) return;
   tray.setContextMenu(Menu.buildFromTemplate([
     { id: 'show-panel', label: '显示面板', click: revealPanel },
-    { id: 'hide-panel', label: '收起面板', click: () => panel?.hide() },
+    { id: 'hide-panel', label: '收起面板', click: hidePanel },
     { type: 'separator' },
-    { id: 'show-floating', label: '显示悬浮球', type: 'checkbox', checked: floating?.visible ?? true, click: item => item.checked ? floating?.show() : floating?.hide() },
-    { id: 'reset-floating', label: '重置悬浮球位置', click: () => floating?.resetPosition() },
+    { id: 'show-floating', label: '显示悬浮球', type: 'checkbox', checked: settings.values.showBall && Boolean(floating?.available), enabled: Boolean(floating), click: item => nativeSetting(() => changeSettings(() => settings.update({ showBall: item.checked }))) },
+    { id: 'reset-floating', label: '重置悬浮球位置', enabled: Boolean(floating), click: () => nativeSetting(resetBallPosition) },
     { type: 'separator' },
     { id: 'quit-mathpad', label: '完全退出 Math Pad', click: () => app.quit() },
   ]));
@@ -82,11 +154,15 @@ function updateTrayMenu() {
 function floatingMenu(window) {
   return new Promise(resolve => Menu.buildFromTemplate([
     { label: '显示 Math Pad', click: revealPanel },
-    { label: '重置位置', click: () => floating?.resetPosition() },
-    { label: '隐藏悬浮球', click: () => floating?.hide() },
+    { label: '重置位置', click: () => nativeSetting(resetBallPosition) },
+    { label: '隐藏悬浮球', click: hideFloating },
     { type: 'separator' },
     { label: '完全退出 Math Pad', click: () => app.quit() },
   ]).popup({ window, callback: resolve }));
+}
+
+function hideFloating() {
+  nativeSetting(() => changeSettings(() => settings.update({ showBall: false })));
 }
 
 function createTray() {
@@ -117,6 +193,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => { quitting = true; floating?.destroy(); });
   app.on('will-quit', () => { tray?.destroy(); tray = undefined; });
   app.whenReady().then(() => {
+    const profile = app.getPath('userData');
+    const initialPosition = loadFloatingPosition(profile);
+    settings = createSettings(profile, initialPosition);
+    registerSettingsHandlers();
     const geogebraAsset = createGeoGebraAssets();
     protocol.handle('mathpad', async (request) => {
       const url = new URL(request.url);
@@ -150,35 +230,42 @@ if (!app.requestSingleInstanceLock()) {
       alwaysOnTop: false,
       autoHideMenuBar: true,
       webPreferences: {
+        preload: path.join(__dirname, 'settings-preload.cjs'),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
       },
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      { label: 'Math Pad', submenu: [{ label: '收起面板', click: () => panel.hide() }, { label: '完全退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
+      { label: 'Math Pad', submenu: [{ label: '收起面板', click: hidePanel }, { label: '完全退出', accelerator: 'Ctrl+Q', click: () => app.quit() }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
     ]));
     panel.webContents.on('will-navigate', (event) => event.preventDefault());
-    panel.on('blur', releasePanelTopmost);
+    panel.on('blur', () => { if (settings.values.panelTopmost !== 'always') releasePanelTopmost(); });
     panel.on('hide', releasePanelTopmost);
+    panel.on('minimize', releasePanelTopmost);
+    panel.on('restore', () => { if (settings.values.panelTopmost === 'always') setPanelTopmost(true); });
     panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     panel.on('close', (event) => {
       if (quitting) return;
-      if (!tray || tray.isDestroyed()) { app.quit(); return; }
+      if (settings.values.closeAction === 'quit' || !hasTray()) { app.quit(); return; }
       event.preventDefault();
       panel.hide();
     });
     createTray();
     positionPanel();
-    // Preload the workbench without showing or focusing it on cold startup.
-    panel.loadURL(`${origin}/`);
     try {
-      floating = createFloatingWindow({ origin, onActivate: revealPanel, onMenu: floatingMenu, onVisibility: updateTrayMenu });
-      updateTrayMenu();
+      floating = createFloatingWindow({
+        origin, initialPosition, preferences: settings.values,
+        onActivate: revealPanel, onMenu: floatingMenu, onHide: hideFloating,
+        onUnavailable() { updateTrayMenu(); if (!canRecoverPanel()) revealPanel(); },
+      });
     } catch (error) {
       console.warn('Floating button unavailable; use the tray to show Math Pad:', error.message);
-      if (!tray) revealPanel();
     }
+    updateTrayMenu();
+    if (settings.values.openAtStartup || !canRecoverPanel()) panel.once('ready-to-show', revealPanel);
+    // Preload the workbench quietly unless the startup preference requests it.
+    panel.loadURL(`${origin}/`);
   });
 }

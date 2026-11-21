@@ -1,7 +1,7 @@
 {
   "name": "math-pad",
   "productName": "MathPad",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "description": "A floating graphing panel for Windows presentations",
   "main": "src/main.cjs",
   "private": true,
@@ -13,6 +13,7 @@
     "test:polish": "electron scripts/smoke-polish.cjs",
     "test:edit": "electron scripts/smoke-curve-edit.cjs",
     "test:python": "electron scripts/smoke-python.cjs",
+    "test:settings": "electron scripts/smoke-settings.cjs",
     "test:tray": "electron scripts/smoke-tray.cjs",
     "test:launcher": "node scripts/smoke-launcher.cjs",
     "test:portable": "node scripts/smoke-portable.cjs",

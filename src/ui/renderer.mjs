@@ -5,6 +5,7 @@ import { availableProperties, createGraph } from './graph.mjs';
 import { initializeCalculator } from './calculator.mjs';
 import { initializeDerivativeLesson } from './derivative-lesson.mjs';
 import { initializeSidebarResize } from './sidebar-resize.mjs';
+import { initializeSettings } from './settings-page.mjs';
 
 const $ = (id) => document.getElementById(id);
 const colors = [[34, 92, 212], [175, 65, 36], [17, 124, 91], [130, 64, 166], [165, 110, 10], [11, 112, 144]];
@@ -30,7 +31,7 @@ let derivativeCurves = [];
 let pendingDerivative;
 let resizeFrame;
 let editingName;
-const lesson = initializeDerivativeLesson(setCurveVisibility);
+const lesson = initializeDerivativeLesson(setCurveVisibility, () => settings.values?.lessonDuration ?? 3500);
 
 function showText(element, text) {
   element.textContent = text;
@@ -90,7 +91,7 @@ async function loadGraph() {
           appletOnLoad: (api) => {
             clearTimeout(timer);
             if (!target.isConnected) return;
-            try { resolve(createGraph(api)); } catch (error) { reject(error); }
+            try { resolve(createGraph(api, settings.values)); } catch (error) { reject(error); }
           },
         }, true);
         applet.setHTML5Codebase(new URL('/geogebra/HTML5/5.0/web3d/', window.location.href).href);
@@ -136,7 +137,7 @@ function handStatus(state, message) {
 
 async function createHand() {
   const generation = ++handGeneration;
-  let recognitionVersion = draftVersion;
+  let recognitionVersion;
   clearTimeout(handTimer);
   hand = undefined;
   handCanvas.replaceChildren();
@@ -334,7 +335,7 @@ function openFormula(curve) {
   if (curve && derivativeCurves.some((item) => item.name === curve.name)) { calculator.suspendDerivative(); lesson.pause(); }
   showText($('formula-error'), '');
   dialog.showModal();
-  setMode(curve?.inputMode === 'python' ? 'python' : curve ? 'keyboard' : 'hand');
+  setMode(curve ? (curve.inputMode || 'keyboard') : (settings.values?.inputMode ?? 'hand'));
   if (curve) input.focus();
 }
 $('open-formula').onclick = () => openFormula();
@@ -392,7 +393,7 @@ function plotFormula() {
   if (submit.disabled) return;
   const text = input.value.trim();
   try {
-    const inputMode = mode === 'python' ? 'python' : 'keyboard';
+    const inputMode = mode;
     if (editingName) editExpression(editingName, text, inputMode);
     else addExpression(text, undefined, inputMode);
     closeFormula();
@@ -520,10 +521,31 @@ $('differentiate-selected').onclick = () => {
 };
 new ResizeObserver(resizeGraph).observe(graphHost);
 window.addEventListener('resize', resizeGraph);
-initializeSidebarResize();
+const sidebar = initializeSidebarResize((key, width) => settings.update({ [key]: width }));
+const settings = initializeSettings((next, previous) => {
+  if (next.sidebarWidth !== previous?.sidebarWidth || next.lessonWidth !== previous?.lessonWidth) sidebar.setWidths(next);
+  document.documentElement.dataset.handHeight = next.handHeight;
+  if (next.showAxes !== previous?.showAxes) graph?.setAxes(next.showAxes);
+  if (next.showGrid !== previous?.showGrid) graph?.setGrid(next.showGrid);
+  if (next.lineWidth !== previous?.lineWidth) graph?.setLineWidth(next.lineWidth, curves.keys());
+});
+let returnWorkspace = 'graph-workspace';
 const calculator = initializeCalculator(addExpression, {
   onDerivative: synchronizeDerivative,
   onEdit: () => { pendingDerivative = undefined; lesson.clear(); },
-  onWorkspace: (id) => { if (id !== 'graph-workspace') lesson.pause(); },
+  onWorkspace(id) {
+    if (id !== 'graph-workspace') lesson.pause();
+    const inSettings = id === 'settings-workspace';
+    $('open-settings').hidden = $('clear-all').hidden = $('workspace-tabs').hidden = inSettings;
+    if (inSettings) {
+      document.querySelector('.settings-scroll').scrollTop = 0;
+      $('settings-title').focus();
+    } else returnWorkspace = id;
+  },
 });
+$('back-to-workspace').onclick = () => {
+  calculator.workspace(returnWorkspace);
+  $('open-settings').focus();
+};
+await settings.load();
 loadGraph();

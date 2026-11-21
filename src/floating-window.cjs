@@ -1,29 +1,28 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
-const fs = require('node:fs');
 const path = require('node:path');
 const { SIZE, DRAG_DISTANCE, constrain, remember, restore, circleShape } = require('./floating-geometry.cjs');
 const { createFloatingDock } = require('./floating-dock.cjs');
+const { writeJson } = require('./settings.cjs');
 
-function createFloatingWindow({ origin, onActivate, onMenu, onVisibility }) {
-  const settingsFile = path.join(app.getPath('userData'), 'floating-window.json');
-  let settings;
-  try { settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
-  let wantedVisible = ![1, 2].includes(settings?.version) || settings.visible !== false;
-  let win, drag, timer, disposed = false, menuOpen = false;
-  const dock = createFloatingDock(() => win, () => Boolean(drag || menuOpen));
+function createFloatingWindow({ origin, initialPosition, preferences, onActivate, onMenu, onHide, onUnavailable }) {
+  const positionFile = path.join(app.getPath('userData'), 'floating-window.json');
+  let position = initialPosition;
+  let wantedVisible = preferences.showBall;
+  let win, loaded = false, drag, timer, disposed = false, menuOpen = false;
+  const dock = createFloatingDock(() => win, () => Boolean(drag || menuOpen), preferences);
 
   function fallbackDisplay() { return screen.getDisplayNearestPoint(screen.getCursorScreenPoint()); }
+  function recordPosition(bounds) {
+    const display = screen.getDisplayNearestPoint({ x: bounds.x + SIZE / 2, y: bounds.y + SIZE / 2 });
+    return remember(bounds, display, wantedVisible);
+  }
   function save() {
     if (!win || win.isDestroyed()) return;
-    const bounds = win.getContentBounds();
-    settings = remember(bounds, screen.getDisplayNearestPoint({ x: bounds.x + SIZE / 2, y: bounds.y + SIZE / 2 }), wantedVisible);
-    const staging = `${settingsFile}.${process.pid}.tmp`;
+    position = recordPosition(win.getContentBounds());
     try {
-      fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
-      fs.writeFileSync(staging, JSON.stringify(settings)); fs.renameSync(staging, settingsFile);
+      writeJson(positionFile, position);
     } catch (error) {
       console.warn('Could not save floating button position:', error.message);
-      try { fs.unlinkSync(staging); } catch {}
     }
   }
   function updateDrag() {
@@ -69,7 +68,8 @@ function createFloatingWindow({ origin, onActivate, onMenu, onVisibility }) {
   }
   function ensureWindow() {
     if (disposed || (win && !win.isDestroyed())) return;
-    const initialBounds = restore(settings, screen.getAllDisplays(), fallbackDisplay());
+    const initialBounds = restore(position, screen.getAllDisplays(), fallbackDisplay());
+    loaded = false;
     win = new BrowserWindow({
       title: 'Math Pad · 悬浮球', ...initialBounds, useContentSize: true,
       frame: false, thickFrame: false, transparent: true, backgroundColor: '#00000000',
@@ -88,34 +88,56 @@ function createFloatingWindow({ origin, onActivate, onMenu, onVisibility }) {
     if (process.platform === 'win32' || process.platform === 'linux') win.setShape(circleShape());
     win.webContents.on('will-navigate', event => event.preventDefault());
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    win.webContents.once('did-finish-load', () => { if (!disposed && win === created) { dock.publish(); if (wantedVisible) created.showInactive(); } });
-    win.on('show', () => { dock.resume(); onVisibility?.(); });
-    win.on('hide', () => { dock.pause(); onVisibility?.(); });
-    win.on('close', event => { if (!disposed) { event.preventDefault(); hide(); } });
-    win.on('closed', () => { clearInterval(timer); timer = undefined; drag = undefined; if (win === created) win = undefined; dock.pause(); onVisibility?.(); });
+    win.webContents.once('did-finish-load', () => {
+      if (disposed || win !== created) return;
+      loaded = true; dock.publish();
+      if (wantedVisible) created.showInactive();
+    });
+    win.on('show', dock.resume);
+    win.on('hide', dock.pause);
+    win.on('close', event => { if (!disposed) { event.preventDefault(); onHide(); } });
+    win.on('closed', () => {
+      clearInterval(timer); timer = undefined; drag = undefined;
+      if (win === created) { win = undefined; loaded = false; dock.pause(); }
+      if (!disposed) onUnavailable();
+    });
     win.loadURL(`${origin}/floating.html`).catch(error => {
       console.warn('Floating button could not load:', error.message);
       if (!created.isDestroyed()) created.destroy();
-      onVisibility?.();
     });
   }
-  function show() {
-    wantedVisible = true; ensureWindow();
-    dock.expand(true);
-    if (win && !win.isDestroyed() && !win.webContents.isLoadingMainFrame()) win.showInactive();
-    dock.resume();
-    save(); onVisibility?.();
+  function configure(next) {
+    if (next.showBall && (!wantedVisible || !win)) {
+      wantedVisible = true;
+      ensureWindow();
+      dock.expand(true);
+      if (loaded) win.showInactive();
+    } else if (!next.showBall && wantedVisible) {
+      wantedVisible = false;
+      finish(false);
+      win?.hide();
+    }
+    dock.configure(next);
   }
-  function hide() { finish(false); wantedVisible = false; win?.hide(); save(); onVisibility?.(); }
   function resetPosition() {
-    finish(false); ensureWindow();
-    if (win && !win.isDestroyed()) win.setContentBounds(restore(undefined, screen.getAllDisplays(), fallbackDisplay()));
-    show();
+    finish(false);
+    const bounds = restore(undefined, screen.getAllDisplays(), fallbackDisplay());
+    const next = recordPosition(bounds);
+    writeJson(positionFile, next);
+    position = next;
+    if (win && !win.isDestroyed()) {
+      dock.pause();
+      win.setContentBounds(bounds);
+      dock.resume();
+    }
   }
   function displaysChanged() {
     finish(false);
     dock.pause();
-    if (win && !win.isDestroyed()) { win.setContentBounds(restore(settings, screen.getAllDisplays(), fallbackDisplay())); save(); if (win.isVisible()) dock.resume(); }
+    if (win && !win.isDestroyed()) {
+      win.setContentBounds(restore(position, screen.getAllDisplays(), fallbackDisplay()));
+      save(); dock.resume();
+    }
   }
   for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(event, displaysChanged);
   try { ensureWindow(); } catch (error) {
@@ -127,8 +149,8 @@ function createFloatingWindow({ origin, onActivate, onMenu, onVisibility }) {
     throw error;
   }
   return {
-    get visible() { return Boolean(win && !win.isDestroyed() && win.isVisible()); },
-    show, hide, resetPosition,
+    get available() { return Boolean(win && !win.isDestroyed()); },
+    configure, resetPosition,
     raise() { if (win && !win.isDestroyed() && win.isVisible()) win.moveTop(); },
     destroy() {
       if (disposed) return;

@@ -16,6 +16,7 @@ npm start
 npm run test:app
 npm run test:edit
 npm run test:python
+npm run test:settings
 npm run test:polish
 npm run test:tray
 npm run test:floating
@@ -26,6 +27,8 @@ npm run test:floating
 `test:portable` 的全新运行副本位于忽略目录 `out/portable-test-*/`，成功后会在确认应用退出和目录边界后删除；失败时保留副本供排查。
 
 `test:app` 阻断 HTTP / HTTPS，验证本地绘图、交点、圆锥曲线、数列、导数、排版以及手写不可用时的键盘回退。设置 `MATHPAD_TEST_MISSING_GEOGEBRA=1` 可额外验证缺失本地绘图脚本的提示和重试。`MATHPAD_TEST_APP_ROOT` 可指向实际运行版的 `runtime/resources/app.asar`，检查打包后的应用。
+
+`test:settings` 在隔离配置中测试旧偏好迁移、实时更新、保存失败回退、重启恢复和默认设置。原生焦点场景在交互桌面运行。
 
 更新本地入口前，完全退出已运行的 Math Pad：
 

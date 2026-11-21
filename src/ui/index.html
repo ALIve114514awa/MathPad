@@ -13,9 +13,14 @@
 <body>
   <header class="heading">
     <div><span class="eyebrow">MATH PAD</span><h1>函数工作台</h1></div>
-    <div class="heading-actions"><div class="ready" id="graph-state" role="status">正在加载绘图组件…</div><button id="clear-all" type="button" title="清空所有曲线、分析结果、教学演示和输入">清空全部</button></div>
+    <div class="heading-actions">
+      <div class="ready" id="graph-state" role="status">正在加载绘图组件…</div>
+      <button id="clear-all" type="button" title="清空所有曲线、分析结果、教学演示和输入">清空全部</button>
+      <button id="open-settings" type="button" data-workspace="settings-workspace" aria-pressed="false" aria-controls="settings-workspace" disabled>设置</button>
+    </div>
   </header>
-  <nav class="workspace-tabs" aria-label="工作区">
+  <p id="settings-error" class="notice settings-error" role="alert" hidden></p>
+  <nav class="workspace-tabs" id="workspace-tabs" aria-label="工作区">
     <button type="button" data-workspace="graph-workspace" aria-pressed="true">函数与导数</button>
     <button type="button" data-workspace="sequence-workspace" aria-pressed="false">数列</button>
   </nav>
@@ -27,7 +32,7 @@
       </nav>
       <div id="curves-panel" class="sidebar-panel">
       <button class="formula-entry" id="open-formula" type="button" aria-haspopup="dialog">
-        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写或键盘输入</small></span>
+        <span class="plus" aria-hidden="true">＋</span><span>新增公式<small>手写、键盘或 Python</small></span>
       </button>
       <section class="curves-section" aria-labelledby="curves-title">
         <div class="section-heading"><h2 id="curves-title">曲线</h2><span id="curve-count" class="badge">0</span></div>
@@ -111,6 +116,60 @@
     <div class="examples" aria-label="数列示例"><span>试一试</span><button type="button" data-sequence-example="squares">平方数列</button><button type="button" data-sequence-example="telescope">裂项求和</button><button type="button" data-sequence-example="weighted">错位相减</button><button type="button" data-sequence-example="recurrence">递推数列</button></div>
     <p id="sequence-status" class="calculation-status" role="status"></p>
     <div id="sequence-output" class="calculation-output" aria-live="polite"></div>
+  </section>
+  <section id="settings-workspace" class="settings-workspace" aria-labelledby="settings-title" hidden>
+    <div class="settings-heading">
+      <div>
+        <h2 id="settings-title" tabindex="-1">设置</h2>
+        <p>修改立即生效并保存到本机。</p>
+      </div>
+      <button id="back-to-workspace" type="button">返回工作台</button>
+    </div>
+    <div class="settings-scroll">
+      <div class="settings-groups">
+        <div class="settings-column">
+          <fieldset>
+            <legend>启动与窗口</legend>
+            <label class="setting-row">启动时打开主面板<input type="checkbox" data-setting="openAtStartup"></label>
+            <label class="setting-row">关闭主面板时<select data-setting="closeAction"><option value="tray">收起到托盘</option><option value="quit">完全退出</option></select></label>
+            <label class="setting-row">主面板置顶<select data-setting="panelTopmost"><option value="temporary">唤出时置顶，失焦后取消</option><option value="always">显示时始终置顶</option><option value="never">关闭置顶</option></select></label>
+          </fieldset>
+          <fieldset>
+            <legend>悬浮球</legend>
+            <label class="setting-row">显示悬浮球<input type="checkbox" data-setting="showBall"></label>
+            <label class="setting-row">贴边后自动收起<input type="checkbox" data-setting="retractBall"></label>
+            <label class="setting-row">收起延迟<select data-setting="retractDelay"><option value="500">0.5 秒</option><option value="800">0.8 秒</option><option value="1500">1.5 秒</option></select></label>
+            <div class="setting-row"><span>回到当前屏幕左侧中间</span><button id="reset-ball-position" type="button">重置位置</button></div>
+          </fieldset>
+          <fieldset>
+            <legend>公式输入</legend>
+            <label class="setting-row">新增公式默认方式<select data-setting="inputMode"><option value="hand">手写</option><option value="keyboard">键盘</option><option value="python">Python 表达式</option></select></label>
+            <label class="setting-row">手写画布<select data-setting="handHeight"><option value="standard">标准</option><option value="tall">加高</option></select></label>
+            <p class="setting-help">手写识别需要联网。键盘和 Python 表达式可离线使用。</p>
+          </fieldset>
+        </div>
+        <div class="settings-column">
+          <fieldset>
+            <legend>布局与绘图</legend>
+            <label class="setting-row">左侧输入栏宽度（px）<input type="number" min="220" max="640" step="1" data-setting="sidebarWidth"></label>
+            <label class="setting-row">右侧演示栏宽度（px）<input type="number" min="220" max="480" step="1" data-setting="lessonWidth"></label>
+            <p class="setting-help">窗口较窄时会自动调整实际宽度。</p>
+            <label class="setting-row">显示坐标轴<input type="checkbox" data-setting="showAxes"></label>
+            <label class="setting-row">显示网格<input type="checkbox" data-setting="showGrid"></label>
+            <label class="setting-row">曲线线宽<select data-setting="lineWidth"><option value="2">细</option><option value="4">标准</option><option value="6">加粗</option></select></label>
+          </fieldset>
+          <fieldset>
+            <legend>导数教学</legend>
+            <label class="setting-row">h → 0 播放速度<select data-setting="lessonDuration"><option value="7000">慢速（7 秒）</option><option value="3500">标准（3.5 秒）</option><option value="1750">快速（1.75 秒）</option></select></label>
+            <p class="setting-help">从下一次播放起生效。</p>
+          </fieldset>
+        </div>
+      </div>
+    </div>
+    <div class="settings-footer">
+      <p id="settings-status" role="status"></p>
+      <button id="reset-settings" type="button">恢复默认设置</button>
+    </div>
   </section>
   <dialog id="formula-dialog" aria-labelledby="formula-title">
     <form id="formula-form" novalidate>

@@ -13,8 +13,9 @@ export function availableProperties(type) {
   return propertyTypes[type] ?? [];
 }
 
-export function createGraph(api) {
+export function createGraph(api, preferences) {
   let nextId = 1;
+  let lineWidth = preferences?.lineWidth ?? 4;
 
   function view() {
     const properties = api.getViewProperties(1);
@@ -74,7 +75,17 @@ export function createGraph(api) {
 
   api.setRounding('6');
   api.setErrorDialogsActive(false);
+  api.setAxesVisible(preferences?.showAxes ?? true, preferences?.showAxes ?? true);
+  api.setGridVisible(preferences?.showGrid ?? true);
   return {
+    setAxes(visible) { api.setAxesVisible(visible, visible); },
+    setGrid(visible) { api.setGridVisible(visible); },
+    setLineWidth(width, names) {
+      lineWidth = width;
+      api.setRepaintingActive(false);
+      try { for (const name of names) api.setLineThickness(name, width); }
+      finally { api.setRepaintingActive(true); }
+    },
     resetView() {
       const { width, height } = view();
       const scale = Math.max(14 / width, 10 / height);
@@ -93,7 +104,7 @@ export function createGraph(api) {
       const plotted = run(command, (object, type) => object === name && Object.hasOwn(propertyTypes, type));
       if (plotted.length !== 1) throw new Error('未能绘图。请检查公式是否定义了一条有效曲线。');
       api.setColor(name, ...rgb);
-      api.setLineThickness(name, 4);
+      api.setLineThickness(name, lineWidth);
       api.setLabelVisible(name, false);
       return { name, type: api.getObjectType(name), ...formula };
     },

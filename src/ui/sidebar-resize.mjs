@@ -1,14 +1,13 @@
-export function initializeSidebarResize() {
+export function initializeSidebarResize(onSave) {
   const workspace = document.getElementById('graph-workspace');
   const lesson = document.getElementById('derivative-teaching');
   const sides = [
-    { id: 'input-sidebar', handle: 'sidebar-resizer', key: 'mathpad.sidebarWidth', css: '--sidebar-width', min: 220, max: 640, defaultWidth: 300, direction: 1 },
-    { id: 'derivative-teaching', handle: 'lesson-resizer', key: 'mathpad.lessonWidth', css: '--lesson-width', min: 220, max: 480, defaultWidth: 280, direction: -1 },
-  ].map((side) => {
-    let preferred = side.defaultWidth;
-    try { const saved = Number(localStorage.getItem(side.key)); if (saved >= side.min && saved <= side.max) preferred = saved; } catch {}
-    return { ...side, preferred, element: document.getElementById(side.id), separator: document.getElementById(side.handle) };
-  });
+    { id: 'input-sidebar', handle: 'sidebar-resizer', key: 'sidebarWidth', css: '--sidebar-width', min: 220, max: 640, defaultWidth: 300, direction: 1 },
+    { id: 'derivative-teaching', handle: 'lesson-resizer', key: 'lessonWidth', css: '--lesson-width', min: 220, max: 480, defaultWidth: 280, direction: -1 },
+  ].map(side => ({
+    ...side, preferred: side.defaultWidth, saved: side.defaultWidth,
+    element: document.getElementById(side.id), separator: document.getElementById(side.handle),
+  }));
   const clamp = (value, min, max) => Math.round(Math.max(min, Math.min(max, value)));
   const paired = () => !lesson.hidden && window.matchMedia('(min-width: 821px)').matches;
   function widths() {
@@ -41,7 +40,11 @@ export function initializeSidebarResize() {
   }
   for (const [index, side] of sides.entries()) {
     let drag;
-    const save = () => { try { localStorage.setItem(side.key, String(side.preferred)); } catch {} };
+    async function save() {
+      const width = side.preferred;
+      if (await onSave(side.key, width)) return;
+      if (side.preferred === width) { side.preferred = side.saved; apply(); }
+    }
     function finish() { if (!drag) return; drag = undefined; document.body.classList.remove('resizing-sidebar'); save(); }
     side.separator.onpointerdown = (event) => {
       if (event.button !== 0) return;
@@ -65,4 +68,10 @@ export function initializeSidebarResize() {
   new ResizeObserver(apply).observe(workspace);
   new MutationObserver(apply).observe(lesson, { attributes: true, attributeFilter: ['hidden'] });
   apply();
+  return {
+    setWidths(values) {
+      for (const side of sides) side.saved = side.preferred = values[side.key];
+      apply();
+    },
+  };
 }

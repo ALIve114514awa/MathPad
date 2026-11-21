@@ -181,5 +181,5 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
     const active = jobs.has('derivative'); finish('derivative');
     if (active) { $('derivative-status').textContent = '本次计算已停止，可先编辑曲线。'; $('derivative-status').dataset.state = 'stale'; }
   }
-  return { derive, reset, invalidateDerivative, suspendDerivative };
+  return { derive, reset, invalidateDerivative, suspendDerivative, workspace };
 }

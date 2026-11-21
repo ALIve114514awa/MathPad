@@ -26,6 +26,8 @@ window.mathPadFloating.onPresentation(state => {
   ball.dataset.edge = state.edge;
   ball.dataset.offset = String(state.offset);
   ball.dataset.retracted = String(state.retracted);
+  ball.title = state.autoRetract ? 'Math Pad · 贴边后自动收起，靠近展开；点击打开，右键菜单' : 'Math Pad · 拖动移动，贴边吸附；点击打开，右键菜单';
+  ball.setAttribute('aria-label', state.autoRetract ? '打开 Math Pad。拖动可移动，贴边后自动收起。' : '打开 Math Pad。拖动可移动，贴边吸附。');
   ball.style.transform = `translate(${state.x}px, ${state.y}px)`;
   const opacity = String(1 - state.offset / 32);
   for (const label of ball.children) label.style.opacity = opacity;

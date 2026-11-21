@@ -113,6 +113,7 @@ async function main() {
   assert.deepEqual(await evaluate(`${ball}.getContentBounds()`),savedPosition);
   log('COLD START RESTORES FLOATING POSITION AND HIDDEN PREFERENCE');
   await quitAndCheck();
+  fs.unlinkSync(path.join(profile,'settings.json'));
   fs.writeFileSync(path.join(profile,'floating-window.json'),JSON.stringify({version:1,visible:true,displayId:1,xRatio:1,yRatio:.42}));
   await launch([`--inspect=127.0.0.1:${port}`]);await connect(port);hostPid=await evaluate('process.pid');
   await until(()=>evaluate(`${ball} && ${ball}.isVisible() && !${ball}.webContents.isLoadingMainFrame()`),'Legacy profile did not load',60000);

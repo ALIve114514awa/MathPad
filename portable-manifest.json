@@ -1,5 +1,5 @@
 {
-  "version": "0.4.9",
+  "version": "0.5.0",
   "platform": "win32-x64",
   "runtimeDirectory": "runtime",
   "files": [
@@ -325,8 +325,8 @@
     },
     {
       "path": "runtime/resources/app.asar",
-      "size": 53273279,
-      "sha256": "d8d362c3a64d6899fb284346d9294df87498c0fae5c992cda0afc64434894408"
+      "size": 53293551,
+      "sha256": "675fc70f17c99f3bcdfea61ccbaff4dd23f7936d8b7d100c2b31d2cba9c96a9b"
     },
     {
       "path": "runtime/resources/licenses/Commander-LICENSE.txt",
@@ -415,18 +415,18 @@
     },
     {
       "path": "runtime/engine-2.deflate",
-      "size": 48398556,
-      "sha256": "224223f8f96b9bd2a7fe5869862ccbce4ec94041cd153832e06a664f62586aa5"
+      "size": 48398555,
+      "sha256": "3d9123f43dd1b8e57e66900cc70e348aaac2ee4d5c9a7e724dc5a00579d31b90"
     },
     {
       "path": "runtime/engine.json",
       "size": 170,
-      "sha256": "c4690c2b345ad4baedbed72f86c77ca921c6b8f85dbb33cb678fb549dd8643b2"
+      "sha256": "409cd17fcd5c821288782cf88304edd209902536bf7f580b9c1640e1a9db7df7"
     },
     {
       "path": "MathPad.exe",
       "size": 24576,
-      "sha256": "5035e89759518cc3b73cfe5dec24c044b7801333dbccfd8917233bb289785ae8"
+      "sha256": "32a36a698e8ec787dca22c46c3e757442e4477e4beffb2dd508cd36fab276d04"
     }
   ]
 }

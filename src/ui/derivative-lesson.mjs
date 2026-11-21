@@ -3,7 +3,7 @@ import { createDerivativeModel } from './derivative-model.mjs';
 const $ = (id) => document.getElementById(id);
 const number = (value) => Number.isFinite(value) ? Number(value.toPrecision(7)).toString() : '未定义';
 
-export function initializeDerivativeLesson(onVisibility) {
+export function initializeDerivativeLesson(onVisibility, getDuration) {
   let model, scene, source, derived, frame, sign = 1, a = 1, lastState;
   const host = $('derivative-teaching');
   function pause() {
@@ -65,11 +65,12 @@ export function initializeDerivativeLesson(onVisibility) {
     if (!model) return;
     if (frame !== undefined) return pause();
     const begin = performance.now();
+    const duration = getDuration();
     const start = Math.max(0, Number($('lesson-h').value));
     let previous = 0;
     $('lesson-play').textContent = '暂停演示'; $('lesson-play').setAttribute('aria-pressed', 'true');
     function animate(time) {
-      const progress = Math.min(1, (time - begin) / 3500);
+      const progress = Math.min(1, (time - begin) / duration);
       if (time - previous > 45 || progress === 1) {
         $('lesson-h').value = start + (-3 - start) * progress; refresh(); previous = time;
       }

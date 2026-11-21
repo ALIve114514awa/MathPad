@@ -66,7 +66,7 @@ async function verify(win) {
   win.webContents.sendInputEvent({ type: 'mouseUp', x: x + 95, y, button: 'left', clickCount: 1 });
   await wait(`document.querySelector('#input-sidebar').getBoundingClientRect().width>${initial + 70}`, 'Dragging the divider did not resize the sidebar');
   await fills('sidebar dragged');
-  const preferred = Number(await js("localStorage.getItem('mathpad.sidebarWidth')"));
+  const preferred = await js("window.mathPadSettings.load({}).then(result => result.values.sidebarWidth)");
   assert.ok(preferred > initial + 70);
   const loaded = new Promise(resolve => win.webContents.once('did-finish-load', resolve)); win.webContents.reload(); await loaded;
   await wait("document.querySelector('#graph-state').dataset.state==='ready'", 'Graph did not reload');
@@ -98,7 +98,7 @@ async function verify(win) {
   win.webContents.sendInputEvent({type:'mouseMove',x:rx-72,y:ry,button:'left'});
   win.webContents.sendInputEvent({type:'mouseUp',x:rx-72,y:ry,button:'left',clickCount:1});
   await wait(`document.querySelector('#derivative-teaching').getBoundingClientRect().width>${arrangement.right.width+50}`, 'Right divider drag must resize teaching controls');
-  const lessonPreferred = Number(await js("localStorage.getItem('mathpad.lessonWidth')"));
+  const lessonPreferred = await js("window.mathPadSettings.load({}).then(result => result.values.lessonWidth)");
   await fills('right sidebar dragged');
   const graphHeight = await js("document.querySelector('#graph').clientHeight");
   await js("document.querySelector('.lesson-definition').open=true; document.querySelector('#derivative-teaching').scrollTop=10000");

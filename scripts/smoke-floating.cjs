@@ -68,18 +68,28 @@ async function start(){
       cursor={x:before.x+(state.edge==='left'?8:state.edge==='right'?40:24),y:before.y+(state.edge==='top'?8:state.edge==='bottom'?40:24)};
       await until(async()=>Number((await attributes()).offset)===0,'Hover did not expand the floating ball');
     }
+    async function sendPointer(type, x, y) {
+      const channel = type === 'mouseDown' ? 'floating:down' : 'floating:up';
+      let received = false;
+      const receive = event => { if (event.sender === ball.webContents) received = true; };
+      ipcMain.on(channel, receive);
+      try {
+        ball.webContents.sendInputEvent({ type, x, y, button: 'left', clickCount: 1 });
+        await until(() => received, 'Floating ball did not receive ' + type, 5000);
+      } finally { ipcMain.removeListener(channel, receive); }
+    }
     async function dragTo(target){
       await expandBall();
       const before=ball.getContentBounds();cursor={x:before.x+24,y:before.y+24};
-      ball.webContents.sendInputEvent({type:'mouseDown',x:24,y:24,button:'left',clickCount:1});
-      await pause(65);cursor={x:target.x+24,y:target.y+24};await pause(80);
-      ball.webContents.sendInputEvent({type:'mouseUp',x:24,y:24,button:'left',clickCount:1});await pause(100);
+      await sendPointer('mouseDown', 24, 24);
+      cursor={x:target.x+24,y:target.y+24};
+      await sendPointer('mouseUp', 24, 24);
       return ball.getContentBounds();
     }
     const area=screen.getDisplayNearestPoint({x:ball.getContentBounds().x+24,y:ball.getContentBounds().y+24}).workArea;
     const center={x:Math.round(area.x+area.width*.42),y:Math.round(area.y+area.height*.42)};
     let result=await dragTo(center);
-    assert.ok(Math.abs(result.x-center.x)<=1&&Math.abs(result.y-center.y)<=1,'Free drag position incorrect');
+    assert.ok(Math.abs(result.x-center.x)<=1&&Math.abs(result.y-center.y)<=1,`Free drag position incorrect: ${JSON.stringify({ result, center })}`);
     assert.equal(panel.isVisible(),false,'Dragging must not open the panel');
     assert.equal(probe.isFocused(),true,`Dragging must preserve probe focus: ${JSON.stringify(BrowserWindow.getAllWindows().map(win=>({title:win.getTitle(),focused:win.isFocused(),focusable:win.isFocusable()})))}`);
     cursor={x:area.x+area.width/2,y:area.y+area.height/2};await pause(1100);
@@ -113,16 +123,16 @@ async function start(){
     log('CONTEXT MENU SUSPENDS RETRACTION');
     const dragOrigin=ball.getContentBounds();
     cursor={x:dragOrigin.x+40,y:dragOrigin.y+24};
-    ball.webContents.sendInputEvent({type:'mouseDown',x:40,y:24,button:'left',clickCount:1});await pause(65);
-    cursor={x:center.x+40,y:center.y+24};await pause(80);
-    ball.webContents.sendInputEvent({type:'mouseUp',x:40,y:24,button:'left',clickCount:1});await pause(100);
+    await sendPointer('mouseDown', 40, 24);
+    cursor={x:center.x+40,y:center.y+24};
+    await sendPointer('mouseUp', 40, 24);
     assert.ok(Math.abs(ball.getContentBounds().x-center.x)<=1,'Dragging the retracted strip did not move the button');
     assert.equal(panel.isVisible(),false);assert.equal(probe.isFocused(),true);
     await dragTo({x:area.x+area.width-60,y:center.y});cursor={x:area.x+area.width/2,y:area.y+area.height/2};
     await until(async()=>(await attributes()).retracted==='true','Strip did not retract before click');
     const clickOrigin=ball.getContentBounds();cursor={x:clickOrigin.x+40,y:clickOrigin.y+24};
-    ball.webContents.sendInputEvent({type:'mouseDown',x:40,y:24,button:'left',clickCount:1});await pause(65);
-    ball.webContents.sendInputEvent({type:'mouseUp',x:40,y:24,button:'left',clickCount:1});
+    await sendPointer('mouseDown', 40, 24);
+    await sendPointer('mouseUp', 40, 24);
     await until(()=>panel.isVisible()&&panel.isFocused(),'Clicking the retracted strip did not reveal the panel');
     panel.hide();probe.show();probe.focus();await until(()=>probe.isFocused(),'Probe did not recover focus');
     log('RETRACTED STRIP CAN BE DRAGGED AND CLICKED DIRECTLY');
@@ -139,10 +149,10 @@ async function start(){
     log('CLICK REVEALS SAME PANEL; CLOSING PANEL KEEPS BALL');
     let item=trayMenu.getMenuItemById('show-floating');item.click();await pause(80);
     assert.equal(ball.isVisible(),false);
-    let saved=JSON.parse(fs.readFileSync(path.join(profile,'floating-window.json'),'utf8'));assert.equal(saved.visible,false);
+    let saved=JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8'));assert.equal(saved.showBall,false);
     item=trayMenu.getMenuItemById('show-floating');item.click();
     await until(()=>ball.isVisible(),'Tray did not restore ball');
-    saved=JSON.parse(fs.readFileSync(path.join(profile,'floating-window.json'),'utf8'));assert.equal(saved.visible,true);
+    saved=JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8'));assert.equal(saved.showBall,true);
     assert.deepEqual(ball.getContentBounds(),before);
     trayMenu.getMenuItemById('reset-floating').click();
     const resetBounds=ball.getContentBounds();
