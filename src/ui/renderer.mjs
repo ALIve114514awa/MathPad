@@ -196,7 +196,7 @@ function setMode(next) {
   $('hand-area').hidden = mode !== 'hand';
   $('python-reference').hidden = mode !== 'python';
   $('formula-label').textContent = mode === 'hand' ? '识别结果（可修改）' : mode === 'python' ? 'Python 数学表达式' : '输入公式';
-  input.placeholder = mode === 'python' ? '例如 x**2 + math.sin(x) 或 lambda x: x**2' : '例如 y=x^2 或 x^2/25+y^2/9=1';
+  input.placeholder = mode === 'python' ? '例如 x**2 + sin(x) 或 lambda x: x**2' : '例如 y=x^2 或 x^2/25+y^2/9=1';
   input.dataset.syntax = mode;
   if (mode === 'python') input.setAttribute('aria-describedby', 'python-reference');
   else input.removeAttribute('aria-describedby');

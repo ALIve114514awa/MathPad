@@ -47,11 +47,12 @@ async function verify(win){
   await click('clear-all');await add('x**2');
   for(const [text,x,expected] of [
     ['-x**2',2,-4],['(-x)**2',2,4],['2**-x',2,.25],['2**3**2',0,512],
-    ['math.log(x)',Math.E,1],['math.log(x, 2)',8,3],['math.log10(x)',100,2],
-    ['math.sqrt(x)+abs(x)',4,6],['lambda x: math.sin(x)+math.pi',0,Math.PI],['1e-3*x',1000,1],
+    ['log(x)',Math.E,1],['log(x, 2)',8,3],['log10(x)',100,2],
+    ['sqrt(x)+abs(x)',4,6],['lambda x: sin(x)+pi',0,Math.PI],['1e-3*x',1000,1],
+    ['math.log(x, 2)',8,3],['math.sin(x)+math.pi',0,Math.PI],
   ]){await edit(text);const actual=await value(await row(0),x);assert.ok(Math.abs(actual-expected)<1e-7,`${text}: ${actual} != ${expected}`);}
   log('ACTUAL GEOGEBRA VALUES MATCH PYTHON POWER PRECEDENCE, LOG BASES, FUNCTIONS AND CONSTANTS');
-  await edit('math.log(x, 2)');await js("document.querySelector('.curve-row input').click()");await click('differentiate-selected');
+  await edit('log(x, 2)');await js("document.querySelector('.curve-row input').click()");await click('differentiate-selected');
   await wait("document.querySelector('#derivative-teaching').dataset.slope && !document.querySelector('#derivative-teaching').hidden",'Python curve did not enter derivative teaching');
   assert.ok(Math.abs(Number(await js("document.querySelector('#derivative-teaching').dataset.slope"))-1/Math.log(2))<1e-6);
   await click('clear-all');await add('x**2/25+y**2/9 == 1');await js("document.querySelector('.curve-row input').click();document.querySelector('#property').value='Focus';document.querySelector('#property').dispatchEvent(new Event('change'))");await click('analyze');
@@ -60,14 +61,19 @@ async function verify(win){
   await click('clear-all');await click('open-formula');await click('mode-python');
   await fill('x');await js("document.querySelector('#formula-text').setSelectionRange(1,1);document.querySelector('[data-symbol=\"^2\"]').click()");
   assert.equal(await js("document.querySelector('#formula-text').value"),'x**2');
+  for(const [symbol,expected] of [['sqrt()','sqrt()'],['π','pi'],['sin()','sin()'],['log()','log()']]){
+    await fill('');await js(`document.querySelector(${JSON.stringify(`[data-symbol="${symbol}"]`)}).click()`);
+    assert.equal(await js("document.querySelector('#formula-text').value"),expected);
+  }
+  assert.doesNotMatch(await js("document.querySelector('#formula-text').placeholder + document.querySelector('#python-reference').textContent"),/math\./);
   await click('mode-keyboard');assert.equal(await js("document.querySelector('#python-reference').hidden"),true);await click('mode-python');
-  await js("document.querySelector('[data-python-example=\"math.log(x, 2)\"]').click()");assert.equal(await js("document.querySelector('#formula-text').value"),'math.log(x, 2)');
+  await js("document.querySelector('[data-python-example=\"log(x, 2)\"]').click()");assert.equal(await js("document.querySelector('#formula-text').value"),'log(x, 2)');
   win.setContentSize(700,720);await pause(200);
   await wait("(()=>{const input=document.querySelector('#formula-text').getBoundingClientRect(),help=document.querySelector('#python-reference').getBoundingClientRect(),dialog=document.querySelector('#formula-dialog');return help.top>=input.bottom && help.width>0 && dialog.scrollWidth<=dialog.clientWidth+1;})()",'Syntax details must sit below the input without horizontal overflow');
-  await fill('x**2 + math.sin(x)');
+  await fill('x**2 + sin(x)');
   await js('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');await pause(80);
   fs.writeFileSync(path.join(os.tmpdir(),'MathPad-python-input.png'),(await win.webContents.capturePage()).toPNG());
-  log('VISIBLE SYNTAX REFERENCE BELOW INPUT; PYTHON SYMBOL BUTTONS AND EXAMPLE FILLING');
+  log('VISIBLE SYNTAX REFERENCE BELOW INPUT; PREFIX-FREE BUTTONS, PLACEHOLDER AND EXAMPLES; LEGACY PREFIXED INPUT STILL WORKS');
   await click('cancel-formula');await click('clear-all');
   assert.equal(await js("document.querySelector('#formula-text').value"),'');assert.equal(await js("document.querySelectorAll('.curve-row').length"),0);
 }

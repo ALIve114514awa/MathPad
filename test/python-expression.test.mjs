@@ -15,12 +15,13 @@ test('Python arithmetic preserves exponent associativity, unary signs and explic
 });
 test('Python math functions keep natural logarithms and argument-first bases distinct from keyboard syntax', () => {
   for (const [python, math] of [
-    ['math.log(x)', 'ln(x)'], ['math.log(x, 2)', 'log(2,x)'], ['log(x, 10)', 'log(10,x)'],
-    ['math.log2(x)', 'log(2,x)'], ['math.log10(x)', 'lg(x)'],
-    ['math . sin(x) + cos(x) + math.tan(x)', 'sin(x)+cos(x)+tan(x)'],
-    ['math.sqrt(x) + abs(x) + math.fabs(x)', 'sqrt(x)+abs(x)+abs(x)'],
-    ['math.asin(x)+math.acos(x)+math.atan(x)', 'asin(x)+acos(x)+atan(x)'],
-    ['math.exp(x)+math.pow(x,2)+math.pi+math.e+math.tau', 'exp(x)+x^2+pi+e+2*pi'],
+    ['log(x)', 'ln(x)'], ['log(x, 2)', 'log(2,x)'], ['log(x, 10)', 'log(10,x)'],
+    ['log2(x)', 'log(2,x)'], ['log10(x)', 'lg(x)'],
+    ['sin(x) + cos(x) + tan(x)', 'sin(x)+cos(x)+tan(x)'],
+    ['sqrt(x) + abs(x) + fabs(x)', 'sqrt(x)+abs(x)+abs(x)'],
+    ['asin(x)+acos(x)+atan(x)', 'asin(x)+acos(x)+atan(x)'],
+    ['exp(x)+pow(x,2)+pi+e+tau', 'exp(x)+x^2+pi+e+2*pi'],
+    ['math.log(x, 2)', 'log(2,x)'], ['math . sin(x)+math.pi', 'sin(x)+pi'],
   ]) assert.deepEqual(compile(python), compileFormula(math), python);
 });
 test('Python equality plots supported conics and retains the implicit-equation domain restrictions', () => {

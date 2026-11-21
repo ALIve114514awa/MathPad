@@ -137,24 +137,24 @@
         <input id="formula-text" type="text" placeholder="例如 y=x^2 或 x^2/25+y^2/9=1" maxlength="350" spellcheck="false" autocomplete="off" inputmode="text">
         <div class="symbols" aria-label="常用数学符号">
           <button type="button" data-symbol="^2" data-python-symbol="**2">x²</button><button type="button" data-symbol="/">a/b</button>
-          <button type="button" data-symbol="sqrt()" data-python-symbol="math.sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
-          <button type="button" data-symbol="π" data-python-symbol="math.pi">π</button><button type="button" data-symbol="sin()" data-python-symbol="math.sin()" data-caret="-1">sin</button>
-          <button type="button" data-symbol="log()" data-python-symbol="math.log()" data-caret="-1">log</button><button type="button" data-symbol="=" data-python-symbol="==">=</button>
+          <button type="button" data-symbol="sqrt()" data-caret="-1">√</button><button type="button" data-symbol="abs()" data-caret="-1">|x|</button>
+          <button type="button" data-symbol="π" data-python-symbol="pi">π</button><button type="button" data-symbol="sin()" data-caret="-1">sin</button>
+          <button type="button" data-symbol="log()" data-caret="-1">log</button><button type="button" data-symbol="=" data-python-symbol="==">=</button>
         </div>
         <section id="python-reference" class="syntax-reference" aria-label="Python 数学表达式语法说明" hidden>
-          <p><strong>Python 数学语法</strong> · 本地解析、离线绘图，无需安装 Python。常用 <code>math.</code> 前缀可省略。</p>
+          <p><strong>Python 数学语法</strong> · 本地解析、离线绘图，无需安装 Python。函数与常数直接填写名称，例如 <code>sin(x)</code>、<code>pi</code>。</p>
           <table>
             <tbody>
               <tr><th scope="row">变量与运算</th><td><code>x</code> 为自变量，支持 <code>+ - * / **</code> 和括号。乘法写 <code>*</code>，乘方写 <code>**</code>（<code>^</code> 为按位异或）。例如 <code>2*x**2 - 1/(x+1)</code>。</td></tr>
-              <tr><th scope="row">根式与指数</th><td><code>math.sqrt(x)</code>、<code>abs(x)</code> / <code>math.fabs(x)</code>、<code>math.exp(x)</code>、<code>pow(x, 2)</code>。</td></tr>
-              <tr><th scope="row">对数</th><td><code>math.log(x)</code> 是自然对数；<code>math.log(x, 2)</code> 表示以 2 为底，真数在前；<code>math.log2(x)</code>、<code>math.log10(x)</code> 分别以 2、10 为底。</td></tr>
-              <tr><th scope="row">三角函数</th><td><code>math.sin(x)</code>、<code>math.cos(x)</code>、<code>math.tan(x)</code>；反三角函数 <code>math.asin(x)</code>、<code>math.acos(x)</code>、<code>math.atan(x)</code>。角度单位为弧度。</td></tr>
-              <tr><th scope="row">常数与数值</th><td><code>math.pi</code>、<code>math.e</code>、<code>math.tau</code>（2π）；支持小数和科学计数法，例如 <code>0.5</code>、<code>1e-3</code>。</td></tr>
+              <tr><th scope="row">根式与指数</th><td><code>sqrt(x)</code>、<code>abs(x)</code> / <code>fabs(x)</code>、<code>exp(x)</code>、<code>pow(x, 2)</code>。</td></tr>
+              <tr><th scope="row">对数</th><td><code>log(x)</code> 是自然对数；<code>log(x, 2)</code> 表示以 2 为底，真数在前；<code>log2(x)</code>、<code>log10(x)</code> 分别以 2、10 为底。</td></tr>
+              <tr><th scope="row">三角函数</th><td><code>sin(x)</code>、<code>cos(x)</code>、<code>tan(x)</code>；反三角函数 <code>asin(x)</code>、<code>acos(x)</code>、<code>atan(x)</code>。角度单位为弧度。</td></tr>
+              <tr><th scope="row">常数与数值</th><td><code>pi</code>、<code>e</code>、<code>tau</code>（2π）；支持小数和科学计数法，例如 <code>0.5</code>、<code>1e-3</code>。</td></tr>
               <tr><th scope="row">函数与方程</th><td>可直接写 <code>x**2</code>，也可写 <code>y = x**2</code> 或 <code>lambda x: x**2</code>。含 x、y 的二次方程使用 <code>==</code>，例如 <code>x**2/25 + y**2/9 == 1</code>。</td></tr>
             </tbody>
           </table>
           <p>每次输入一条数学表达式，按实数范围绘图。此模式支持上表中的语法子集；暂不支持 <code>import</code>、<code>def</code>、循环、数组、条件表达式、<code>//</code> 和 <code>%</code>。</p>
-          <div class="examples"><span>填入示例</span><button type="button" data-python-example="x**2 + math.sin(x)">复合函数</button><button type="button" data-python-example="math.log(x, 2)">对数函数</button><button type="button" data-python-example="x**2/25 + y**2/9 == 1">椭圆</button></div>
+          <div class="examples"><span>填入示例</span><button type="button" data-python-example="x**2 + sin(x)">复合函数</button><button type="button" data-python-example="log(x, 2)">对数函数</button><button type="button" data-python-example="x**2/25 + y**2/9 == 1">椭圆</button></div>
         </section>
       </div>
       <p id="formula-error" class="error" role="alert" hidden></p>

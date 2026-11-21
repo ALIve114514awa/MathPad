@@ -56,7 +56,7 @@ export function pythonToFormula(source) {
     if (token === 'tau') return binary('*', number(2), { constant: 'π' });
     const supported = unaryCalls.has(token) || ['abs', 'fabs', 'log', 'log2', 'log10', 'pow'].includes(token);
     if (!supported || (qualified && token === 'abs')) {
-      throw new Error(`暂不支持名称「${qualified ? 'math.' : ''}${token ?? ''}」。请使用下方列出的数学函数；绝对值用 abs(x) 或 math.fabs(x)。`);
+      throw new Error(`暂不支持名称「${qualified ? 'math.' : ''}${token ?? ''}」。请使用下方列出的数学函数；绝对值用 abs(x) 或 fabs(x)。`);
     }
     expect('(');
     const args = [];
