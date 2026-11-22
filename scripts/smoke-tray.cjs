@@ -1,4 +1,4 @@
-const { until, createLogger, prepareOfflineWindow, loadApp } = require('./lib/smoke.cjs');
+const { until, createLogger, prepareOfflineWindow, clickFloatingBall, loadApp } = require('./lib/smoke.cjs');
 const { app, BrowserWindow, Tray } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -50,8 +50,9 @@ if (!secondary) {
     assert.deepEqual(await js('window.ggbApplet.getAllObjectNames()'), names);
     item('hide-panel').click();
     assert.equal(win.isVisible(), false);
+    const previousFocuses = focuses;
     item('show-panel').click();
-    await until(() => win.isVisible(), 'Tray menu did not show the panel');
+    await until(() => win.isVisible() && win.isFocused() && focuses > previousFocuses, 'Tray menu did not focus the panel');
     log('TRAY ICON EXISTS; CLOSE HIDES; TRAY CLICK/MENU RESTORE SAME GRAPH');
     async function relaunch() {
       const child = spawn(process.execPath, [__filename], {
@@ -61,15 +62,27 @@ if (!secondary) {
       const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
       assert.equal(exit, 0, 'Secondary process must exit normally');
     }
-    win.hide(); await relaunch();
-    await until(() => win.isVisible() && win.isFocused(), 'Real second launch did not reveal hidden window');
+    let launches = 0;
+    app.on('second-instance', () => { launches++; });
+    win.hide();
+    await until(() => !win.isFocused(), 'The hidden workbench did not release focus');
+    const before = { shows, focuses };
+    await relaunch();
+    await until(() => launches === 1, 'The running app did not receive the new launch');
+    assert.equal(win.isVisible(), false);
+    assert.deepEqual({ shows, focuses }, before, 'Relaunch must not flash or focus the hidden workbench');
+    await clickFloatingBall();
+    await until(() => win.isVisible() && win.isFocused(), 'Clicking the ball did not reveal the hidden workbench');
     assert.deepEqual(await js('window.ggbApplet.getAllObjectNames()'), names);
-    win.minimize(); await relaunch();
-    await until(() => !win.isMinimized() && win.isVisible(), 'Second launch did not restore minimized window');
+    win.minimize();
     await Promise.all([relaunch(), relaunch(), relaunch()]);
+    await until(() => launches === 4, 'The running app did not receive the rapid launches');
+    assert.equal(win.isMinimized(), true);
     assert.equal(BrowserWindow.getAllWindows().filter(window=>window.getTitle()==='Math Pad · 函数面板').length, 1);
     assert.equal(BrowserWindow.getAllWindows().filter(window=>window.getTitle()==='Math Pad · 悬浮球').length, 1);
-    log('REAL SECOND PROCESSES RESTORE HIDDEN/MINIMIZED WINDOW; RAPID LAUNCHES KEEP ONE PANEL AND ONE BALL');
+    await clickFloatingBall();
+    await until(() => !win.isMinimized() && win.isVisible(), 'The floating ball did not restore the minimized workbench');
+    log('REAL SECOND PROCESSES KEEP THE WORKBENCH HIDDEN OR MINIMIZED; BALL RESTORES IT');
     clearTimeout(guard);
     item('quit-mathpad').click();
   }

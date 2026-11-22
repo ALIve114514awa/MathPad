@@ -145,6 +145,18 @@ body.resizing-sidebar .graph { pointer-events: none; }
 .curve-formula { min-width: 0; overflow-wrap: anywhere; font: 13px "Cambria Math", "Segoe UI", sans-serif; }
 .curve-color { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 4px 1px 0; }
 .curve-row button { padding: 3px 4px; font-size: 11px; }
+.derivative-group { min-width: 0; border: 1px solid #c7d6f0; border-radius: 7px; background: #f8faff; }
+.derivative-group > .curve-row { border-color: transparent; }
+.derivative-group > .curve-row[data-selected="true"] { border-color: #a6baf2; }
+.derivative-branch { display: grid; gap: 4px; list-style: none; margin: 2px 5px 6px 12px; padding: 0 0 0 6px; border-inline-start: 2px solid #d2def2; }
+.derivative-branch .curve-row { gap: 3px; padding: 3px; background-color: white; }
+.derivative-branch .curve-row button { white-space: nowrap; }
+.derivative-preview { margin: 8px 0; padding: 4px; }
+.derivative-text-row { min-width: 0; display: flex; gap: 5px; align-items: baseline; padding: 2px 4px; }
+.derivative-text-row .curve-color { flex: 0 0 auto; margin: 0; }
+.derivative-text-row[data-hidden-on-plot="true"], .derivative-text-row[data-unavailable="true"] { color: var(--muted); }
+.curve-role, .derivative-text-row small { display: block; font: 11px "Segoe UI", sans-serif; color: var(--muted); }
+.curve-role { grid-column: 1 / -1; padding-inline-start: 3px; }
 .analysis-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 5px; font-size: 12px; }
 .analysis-actions select { padding: 5px 2px; min-width: 0; }
 .notice, .error { font-size: 12px; line-height: 1.4; color: #a33328; margin-top: 7px; }

@@ -2,7 +2,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const defaults = Object.freeze({
-  openAtStartup: false,
   closeAction: 'tray',
   panelTopmost: 'temporary',
   showBall: true,
@@ -16,6 +15,7 @@ const defaults = Object.freeze({
   showGrid: true,
   lineWidth: 4,
   lessonDuration: 3500,
+  lessonFormulaPlacement: 'both',
 });
 
 const options = {
@@ -26,6 +26,7 @@ const options = {
   handHeight: ['standard', 'tall'],
   lineWidth: [2, 4, 6],
   lessonDuration: [7000, 3500, 1750],
+  lessonFormulaPlacement: ['both', 'list'],
 };
 const widths = { sidebarWidth: 640, lessonWidth: 480 };
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);

@@ -1,4 +1,4 @@
-const { pause, until, createLogger, prepareOfflineWindow, loadApp } = require('./lib/smoke.cjs');
+const { pause, until, createLogger, prepareOfflineWindow, clickFloatingBall, loadApp } = require('./lib/smoke.cjs');
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -31,7 +31,7 @@ async function verify(win) {
   const wait = (code, label, timeout) => until(() => js(code), label, timeout);
   const painted = () => js('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   await wait("document.querySelector('#graph-state').dataset.state==='ready'", 'Graph did not load', 60000);
-  app.emit('second-instance', {}, [], process.cwd());
+  await clickFloatingBall();
   await until(() => win.isFocused(), 'Main window did not focus');
   probe = new BrowserWindow({ show: false, width: 320, height: 200, title: 'Math Pad focus probe' });
   await probe.loadURL('data:text/html,<title>Math Pad focus probe</title><p>Focus verification</p>');
@@ -39,7 +39,7 @@ async function verify(win) {
   await until(() => probe.isFocused() && !win.isFocused(), 'Could not move focus to a different native window');
   await until(() => !win.isAlwaysOnTop(), 'Topmost was not released after native blur', 2500);
   assert.equal(win.isAlwaysOnTop(), false, 'Math Pad must release topmost after blur');
-  app.emit('second-instance', {}, [], process.cwd());
+  await clickFloatingBall();
   await until(() => win.isFocused(), 'Invoking the existing panel did not regain focus');
   probe.destroy(); probe = undefined;
   log('FOCUS: TOPMOST RELEASED FOR OTHER WINDOW; NORMAL REFOCUS WORKS');

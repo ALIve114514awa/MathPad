@@ -24,9 +24,19 @@ function prepareOfflineWindow(win) {
     { urls: ['http://*/*', 'https://*/*'] }, (_, callback) => callback({ cancel: true }));
 }
 
+async function clickFloatingBall() {
+  const { BrowserWindow } = require('electron');
+  let ball;
+  await until(() => {
+    ball = BrowserWindow.getAllWindows().find(win => win.getTitle() === 'Math Pad · 悬浮球');
+    return ball?.isVisible() && !ball.webContents.isLoadingMainFrame();
+  }, 'Floating ball did not load');
+  await ball.webContents.executeJavaScript("document.querySelector('#floating-ball').click()");
+}
+
 function loadApp() {
   const root = process.env.MATHPAD_TEST_APP_ROOT || path.resolve(__dirname, '../..');
   require(path.join(root, 'src', 'main.cjs'));
 }
 
-module.exports = { pause, until, createLogger, prepareOfflineWindow, loadApp };
+module.exports = { pause, until, createLogger, prepareOfflineWindow, clickFloatingBall, loadApp };

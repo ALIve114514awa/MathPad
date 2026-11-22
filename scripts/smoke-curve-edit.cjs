@@ -1,4 +1,4 @@
-const { pause, createLogger, prepareOfflineWindow, loadApp } = require('./lib/smoke.cjs');
+const { pause, createLogger, prepareOfflineWindow, clickFloatingBall, loadApp } = require('./lib/smoke.cjs');
 const { app } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -21,7 +21,7 @@ app.on('browser-window-created', (_, win) => {
 });
 
 async function verify(win) {
-  app.emit('second-instance', {}, [], process.cwd());
+  await clickFloatingBall();
   const js = code => win.webContents.executeJavaScript(code);
   const click = id => js(`document.getElementById(${JSON.stringify(id)}).click()`);
   async function wait(code, label, timeout = 15000) {
@@ -109,13 +109,19 @@ async function verify(win) {
   await js("document.querySelector('[data-panel=curves-panel]').click(); document.querySelectorAll('.curve-row')[2].querySelector('[data-edit]').click()");
   await click('cancel-formula');
   assert.equal(await js("document.querySelector('#derivative-teaching').hidden"), false);
+  assert.equal(await js("document.querySelectorAll('#curves .derivative-group').length"), 1);
   await edit(2, 'y=x^3');
   assert.equal(await js("document.querySelector('#derivative-teaching').hidden"), true);
+  assert.equal(await js("document.querySelectorAll('#curves .derivative-group').length"), 0);
   assert.equal(await js("document.querySelector('#derivative-form').elements.namedItem('formula').value"), 'y=x^3');
   assert.equal(await js("document.querySelector('#derivative-output').dataset.stale"), 'true');
   await js("document.querySelector('[data-panel=derivative-workspace]').click();document.querySelector('#derivative-form').requestSubmit()");
   await wait("document.querySelector('#derivative-teaching').dataset.slope==='3'", 'Edited teaching source did not recalculate');
   assert.equal(await js("document.querySelectorAll('.curve-row').length"), 4);
+  await js("document.querySelector('#curves .derivative-branch .curve-row button:last-child').click()");
+  assert.equal(await js("document.querySelector('#derivative-teaching').hidden"), true);
+  assert.equal(await js("document.querySelectorAll('#curves .derivative-group').length"), 0);
+  assert.equal(await js("document.querySelectorAll('.curve-row').length"), 3);
   log('TEACHING CANCEL PRESERVES SCENE; SAVED SOURCE INVALIDATES AND RECALCULATES DERIVATIVE');
 }
 

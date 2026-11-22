@@ -3,7 +3,7 @@ import { createDerivativeModel } from './derivative-model.mjs';
 const $ = (id) => document.getElementById(id);
 const number = (value) => Number.isFinite(value) ? Number(value.toPrecision(7)).toString() : '未定义';
 
-export function initializeDerivativeLesson(onVisibility, getDuration) {
+export function initializeDerivativeLesson(onVisibility, getDuration, onLines) {
   let model, scene, source, derived, frame, sign = 1, a = 1, lastState;
   const host = $('derivative-teaching');
   function pause() {
@@ -37,18 +37,28 @@ export function initializeDerivativeLesson(onVisibility, getDuration) {
       }));
       host.dataset.a = a; host.dataset.h = h;
       host.dataset.slope = number(state.slope); host.dataset.secant = number(state.secant);
+      const tangent = $('lesson-show-tangent').checked;
       scene.update(state, {
-        tangent: $('lesson-show-tangent').checked,
+        tangent,
         derivativeVisible: $('lesson-show-derivative').checked,
         visible: source.visible,
       });
-    } catch (error) { pause(); $('lesson-notice').textContent = error.message; $('lesson-notice').dataset.invalid = 'true'; }
+      onLines({
+        a: state.a, y: state.y,
+        tangent: { slope: state.slope, valid: state.tangentValid, visible: source.visible && tangent },
+        secant: { slope: state.secant, valid: state.secantValid, visible: source.visible },
+      });
+    } catch (error) {
+      pause(); onLines(undefined);
+      $('lesson-notice').textContent = error.message; $('lesson-notice').dataset.invalid = 'true';
+    }
   }
   function clear() {
     pause(); scene?.dispose(); model = scene = source = derived = undefined;
     lastState = undefined;
     for (const key of ['a', 'h', 'slope', 'secant']) delete host.dataset[key];
     host.hidden = true;
+    onLines(undefined);
   }
   $('lesson-a').oninput = () => {
     const value = Number($('lesson-a').value);
@@ -91,6 +101,7 @@ export function initializeDerivativeLesson(onVisibility, getDuration) {
       $('lesson-show-tangent').checked = $('lesson-show-derivative').checked = true;
       scene = graph.teach(derivative, (x) => { pause(); a = x; refresh(); });
       host.hidden = false;
+      host.querySelector('.legend-source').style.color = `rgb(${source.color.join(',')})`;
       $('lesson-question').textContent = teaching.source === 'x^3'
         ? '观察 a=0：切线水平，函数在两侧仍继续上升。导数为零一定是极值吗？'
         : teaching.source === 'abs(x)'
@@ -101,6 +112,5 @@ export function initializeDerivativeLesson(onVisibility, getDuration) {
       requestAnimationFrame(() => requestAnimationFrame(() => { if (scene === currentScene) scene.focus(lastState); }));
     },
     refresh, pause, clear,
-    owns(name) { return source?.name === name || derived?.name === name; },
   };
 }

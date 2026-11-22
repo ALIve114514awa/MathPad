@@ -67,6 +67,7 @@
       <div class="calculation-submit"><button type="submit" class="primary">计算并同步绘图</button><button type="button" data-cancel-calculation="derivative" hidden>取消计算</button></div>
     </form>
     <p id="derivative-status" class="calculation-status" role="status"></p>
+    <section id="derivative-formulas" class="derivative-group derivative-preview" aria-label="演示公式" hidden></section>
     <div id="derivative-output" class="calculation-output" aria-live="polite"></div>
     <details class="input-reference"><summary>更多示例与输入规则</summary>
     <div class="examples" aria-label="求导示例"><span>试一试</span><button type="button" data-derivative-example="chain">复合三角函数</button><button type="button" data-derivative-example="quotient">对数与商法则</button><button type="button" data-derivative-example="power">幂指函数</button><button type="button" data-derivative-example="parameter">含参数</button></div>
@@ -129,8 +130,7 @@
       <div class="settings-groups">
         <div class="settings-column">
           <fieldset>
-            <legend>启动与窗口</legend>
-            <label class="setting-row">启动时打开主面板<input type="checkbox" data-setting="openAtStartup"></label>
+            <legend>窗口</legend>
             <label class="setting-row">关闭主面板时<select data-setting="closeAction"><option value="tray">收起到托盘</option><option value="quit">完全退出</option></select></label>
             <label class="setting-row">主面板置顶<select data-setting="panelTopmost"><option value="temporary">唤出时置顶，失焦后取消</option><option value="always">显示时始终置顶</option><option value="never">关闭置顶</option></select></label>
           </fieldset>
@@ -161,7 +161,8 @@
           <fieldset>
             <legend>导数教学</legend>
             <label class="setting-row">h → 0 播放速度<select data-setting="lessonDuration"><option value="7000">慢速（7 秒）</option><option value="3500">标准（3.5 秒）</option><option value="1750">快速（1.75 秒）</option></select></label>
-            <p class="setting-help">从下一次播放起生效。</p>
+            <p class="setting-help">播放速度从下一次播放起生效。</p>
+            <label class="setting-row">演示公式显示位置<select data-setting="lessonFormulaPlacement"><option value="both">两个标签都显示</option><option value="list">仅函数列表显示</option></select></label>
           </fieldset>
         </div>
       </div>

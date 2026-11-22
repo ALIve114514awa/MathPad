@@ -62,6 +62,7 @@ async function main() {
   const ball=`${electron}.BrowserWindow.getAllWindows().find(win=>win.getTitle()==='Math Pad · 悬浮球')`;
   const visible=`${window}.isVisible() && !${window}.isMinimized()${focusCheck ? ` && ${window}.isFocused()` : ''}`;
   const page=code=>evaluate(`${window}.webContents.executeJavaScript(${JSON.stringify(code)})`);
+  const clickBall=()=>evaluate(`${ball}.webContents.executeJavaScript("document.querySelector('#floating-ball').click()")`);
   async function quitAndCheck() {
     const processIds=await evaluate(`${electron}.app.getAppMetrics().map(item=>item.pid)`);
     await evaluate(`setTimeout(()=>${electron}.Menu.getApplicationMenu().items[0].submenu.items.find(item=>item.label==='完全退出').click(),150);true`);
@@ -80,23 +81,30 @@ async function main() {
   const startupPosition=await evaluate(`(()=>{const bounds=${ball}.getContentBounds();const area=${electron}.screen.getDisplayNearestPoint({x:bounds.x+24,y:bounds.y+24}).workArea;return {bounds,area};})()`);
   assert.equal(startupPosition.bounds.x,startupPosition.area.x);
   assert.equal(startupPosition.bounds.y,Math.round(startupPosition.area.y+(startupPosition.area.height-48)/2));
-  await evaluate(`${ball}.webContents.executeJavaScript("document.querySelector('#floating-ball').click()")`);
+  await clickBall();
   await until(()=>evaluate(visible),'Clicking startup ball did not open the workbench');
   log('ROOT EXE STARTS QUIETLY WITH LEFT-CENTER BALL; CLICK OPENS PRELOADED PANEL');
   await page("document.querySelector('#open-formula').click();document.querySelector('#mode-keyboard').click();document.querySelector('#formula-text').value='y=x^2+1';document.querySelector('#formula-text').dispatchEvent(new Event('input'));document.querySelector('#submit-formula').click()");
   await until(()=>page("!document.querySelector('#formula-dialog').open"),'Packaged input did not plot');
   const objects=await page('window.ggbApplet.getAllObjectNames()');
+  await evaluate(`globalThis.mathPadLaunches=0;${electron}.app.on('second-instance',()=>{globalThis.mathPadLaunches++});true`);
+  let launches=0;
   for(const state of ['close','minimize','close']) {
     await evaluate(`${window}.${state}()`);
     await pause(180);
     if(state==='close')assert.equal(await evaluate(`${window}.isVisible()`),false);
     await launch();
-    await until(()=>evaluate(visible),'Double-clicking root EXE did not restore '+state+' window');
+    launches++;
+    await until(async()=>await evaluate('globalThis.mathPadLaunches')===launches,'The running app did not receive the new root EXE launch');
+    assert.equal(await evaluate(state==='close' ? `${window}.isVisible()` : `!${window}.isMinimized()`),false);
+    assert.equal(await evaluate(`${ball}.isVisible() && !${ball}.isFocused()`),true);
+    await clickBall();
+    await until(()=>evaluate(visible),'Clicking the ball did not restore '+state+' window');
     assert.equal(await evaluate('process.pid'),hostPid);
     assert.equal(await evaluate(`${electron}.BrowserWindow.getAllWindows().length`),2);
     assert.deepEqual(await page('window.ggbApplet.getAllObjectNames()'),objects);
   }
-  log('ROOT EXE RESTORES HIDDEN/MINIMIZED PANEL; SAME PID, ONE PANEL, ONE BALL AND ORIGINAL CURVE');
+  log('ROOT EXE RELAUNCH ONLY PRESENTS THE BALL; CLICK RESTORES THE SAME PANEL AND CURVE');
   const savedPosition=await evaluate(`(()=>{const area=${electron}.screen.getPrimaryDisplay().workArea;const bounds={x:area.x+180,y:area.y+160,width:48,height:48};${ball}.setContentBounds(bounds);return ${ball}.getContentBounds();})()`);
   await quitAndCheck();
   await launch([`--inspect=127.0.0.1:${port}`]);await connect(port);hostPid=await evaluate('process.pid');

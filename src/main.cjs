@@ -20,6 +20,7 @@ const files = new Map([
   ['/mathml.mjs', ['mathml.mjs', 'text/javascript']],
   ['/graph.mjs', ['graph.mjs', 'text/javascript']],
   ['/derivative-model.mjs', ['derivative-model.mjs', 'text/javascript']],
+  ['/derivative-group.mjs', ['derivative-group.mjs', 'text/javascript']],
   ['/derivative-lesson.mjs', ['derivative-lesson.mjs', 'text/javascript']],
   ['/sidebar-resize.mjs', ['sidebar-resize.mjs', 'text/javascript']],
   ['/calculator.mjs', ['calculator.mjs', 'text/javascript']],
@@ -144,7 +145,7 @@ function updateTrayMenu() {
     { id: 'show-panel', label: '显示面板', click: revealPanel },
     { id: 'hide-panel', label: '收起面板', click: hidePanel },
     { type: 'separator' },
-    { id: 'show-floating', label: '显示悬浮球', type: 'checkbox', checked: settings.values.showBall && Boolean(floating?.available), enabled: Boolean(floating), click: item => nativeSetting(() => changeSettings(() => settings.update({ showBall: item.checked }))) },
+    { id: 'show-floating', label: '启用悬浮窗', type: 'checkbox', checked: settings.values.showBall && Boolean(floating?.available), enabled: Boolean(floating), click: item => nativeSetting(() => changeSettings(() => settings.update({ showBall: item.checked }))) },
     { id: 'reset-floating', label: '重置悬浮球位置', enabled: Boolean(floating), click: () => nativeSetting(resetBallPosition) },
     { type: 'separator' },
     { id: 'quit-mathpad', label: '完全退出 Math Pad', click: () => app.quit() },
@@ -188,8 +189,9 @@ function positionPanel() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', revealPanel);
-  app.on('activate', revealPanel);
+  const showLauncher = () => { if (!quitting) floating?.present(); };
+  app.on('second-instance', showLauncher);
+  app.on('activate', showLauncher);
   app.on('before-quit', () => { quitting = true; floating?.destroy(); });
   app.on('will-quit', () => { tray?.destroy(); tray = undefined; });
   app.whenReady().then(() => {
@@ -264,8 +266,8 @@ if (!app.requestSingleInstanceLock()) {
       console.warn('Floating button unavailable; use the tray to show Math Pad:', error.message);
     }
     updateTrayMenu();
-    if (settings.values.openAtStartup || !canRecoverPanel()) panel.once('ready-to-show', revealPanel);
-    // Preload the workbench quietly unless the startup preference requests it.
+    if (!canRecoverPanel()) panel.once('ready-to-show', revealPanel);
+    // Preload the workbench so its first explicit activation is fast.
     panel.loadURL(`${origin}/`);
   });
 }

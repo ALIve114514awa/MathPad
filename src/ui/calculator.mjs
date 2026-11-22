@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 
 export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = () => {}, onWorkspace = () => {} } = {}) {
   const jobs = new Map();
+  let derivativeSource;
   function workspace(id) {
     for (const button of document.querySelectorAll('[data-workspace]')) {
       const active = button.dataset.workspace === id;
@@ -28,7 +29,7 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
     else element.textContent = fallback ?? text;
   }
 
-  function render(kind, result) {
+  function render(kind, result, sourceName) {
     const output = $(`${kind}-output`);
     output.dataset.stale = 'false';
     output.replaceChildren();
@@ -48,7 +49,7 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
       const button = document.createElement('button'); button.type = 'button'; button.textContent = '重新同步图像';
       button.onclick = () => {
         if (output.dataset.stale === 'true') { $('derivative-status').textContent = '输入已修改，请先计算再同步。'; return; }
-        onDerivative(result);
+        onDerivative(result, sourceName);
       };
       output.append(button);
     } else if (result.plots?.length) {
@@ -95,6 +96,8 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
   function calculate(kind) {
     finish(kind);
     const input = Object.fromEntries(new FormData($(`${kind}-form`)));
+    if (kind === 'derivative' && derivativeSource?.formula !== input.formula) derivativeSource = undefined;
+    const sourceName = kind === 'derivative' ? derivativeSource?.name : undefined;
     const status = $(`${kind}-status`);
     $(`${kind}-output`).dataset.stale = 'true';
     status.textContent = '正在进行符号计算…';
@@ -110,8 +113,8 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
       status.textContent = data.error ? `计算未完成：${data.error}` : '';
       status.dataset.state = data.error ? 'error' : 'ready';
       if (data.result) {
-        render(kind, data.result);
-        if (kind === 'derivative') onDerivative(data.result);
+        render(kind, data.result, sourceName);
+        if (kind === 'derivative') onDerivative(data.result, sourceName);
       }
     };
     worker.onerror = () => { finish(kind); status.textContent = '无法启动本地计算组件，请重新打开程序后重试。'; };
@@ -125,7 +128,8 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
     for (const field of document.querySelectorAll('[data-sequence-modes]')) field.hidden = !field.dataset.sequenceModes.split(' ').includes($('sequence-mode').value);
   }
   $('sequence-mode').onchange = sequenceMode;
-  $('derivative-form').addEventListener('input', () => {
+  $('derivative-form').addEventListener('input', (event) => {
+    if (event.target.name === 'formula') derivativeSource = undefined;
     finish('derivative'); onEdit();
     $('derivative-output').dataset.stale = 'true';
     $('derivative-status').textContent = '输入已修改，点击计算同步公式和图像。';
@@ -146,7 +150,10 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
       for (const [name, value] of Object.entries(example)) $(`${kind}-form`).elements.namedItem(name).value = value;
       if (kind === 'sequence') sequenceMode();
       $(`${kind}-status`).textContent = '已填入示例，点击计算查看结果。';
-      if (kind === 'derivative') { onEdit(); $('derivative-output').dataset.stale = 'true'; }
+      if (kind === 'derivative') {
+        derivativeSource = undefined;
+        onEdit(); $('derivative-output').dataset.stale = 'true';
+      }
     };
   }
   const lessons = {
@@ -154,13 +161,15 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
     stationary: { formula: 'x^3', point: '0', order: 1 },
     corner: { formula: 'abs(x)', point: '0', order: 1 },
   };
-  function derive(input) {
+  function derive(input, sourceName) {
     panel('derivative-workspace');
+    derivativeSource = sourceName ? { name: sourceName, formula: input.formula } : undefined;
     for (const [name, value] of Object.entries(input)) $('derivative-form').elements.namedItem(name).value = value;
     onEdit(); calculate('derivative');
   }
   for (const button of document.querySelectorAll('[data-lesson-example]')) button.onclick = () => derive(lessons[button.dataset.lessonExample]);
   function reset() {
+    derivativeSource = undefined;
     for (const kind of ['sequence', 'derivative']) {
       finish(kind);
       const form = $(`${kind}-form`); form.reset();
@@ -170,16 +179,22 @@ export function initializeCalculator(plot, { onDerivative = () => {}, onEdit = (
     }
     sequenceMode();
   }
-  function invalidateDerivative(formula) {
+  function invalidateDerivative(formula, previousName, replacementName) {
+    if (derivativeSource?.name === previousName) {
+      derivativeSource = replacementName ? { name: replacementName, formula } : undefined;
+    }
     finish('derivative'); onEdit();
     if (formula !== undefined) $('derivative-form').elements.namedItem('formula').value = formula;
     $('derivative-output').dataset.stale = 'true';
-    $('derivative-status').textContent = '教学曲线正在编辑或已修改，重新计算后同步导函数和教学演示。';
+    $('derivative-status').textContent = '教学曲线已修改或删除，请重新计算以更新演示。';
     $('derivative-status').dataset.state = 'stale';
   }
   function suspendDerivative() {
     const active = jobs.has('derivative'); finish('derivative');
     if (active) { $('derivative-status').textContent = '本次计算已停止，可先编辑曲线。'; $('derivative-status').dataset.state = 'stale'; }
   }
-  return { derive, reset, invalidateDerivative, suspendDerivative, workspace };
+  return {
+    derive, reset, invalidateDerivative, suspendDerivative, workspace,
+    referencesDerivativeSource(name) { return name === derivativeSource?.name; },
+  };
 }

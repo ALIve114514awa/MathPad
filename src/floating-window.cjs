@@ -151,6 +151,12 @@ function createFloatingWindow({ origin, initialPosition, preferences, onActivate
   return {
     get available() { return Boolean(win && !win.isDestroyed()); },
     configure, resetPosition,
+    present() {
+      if (!wantedVisible || !loaded || !win || win.isDestroyed()) return;
+      dock.expand(true);
+      if (win.isVisible()) win.moveTop();
+      else win.showInactive();
+    },
     raise() { if (win && !win.isDestroyed() && win.isVisible()) win.moveTop(); },
     destroy() {
       if (disposed) return;

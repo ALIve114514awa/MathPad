@@ -17,6 +17,7 @@ if (!phase) {
   fs.writeFileSync(path.join(profile, 'floating-window.json'), JSON.stringify({
     version: 2, visible: false, displayId: -1, xRatio: 0, yRatio: .34,
   }));
+  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({ version: 1, lessonDuration: 3500, openAtStartup: true }));
   for (const stage of ['initial', 'restart', 'corrupt']) {
     if (stage === 'corrupt') fs.writeFileSync(path.join(profile, 'settings.json'), '{invalid');
     const child = spawnSync(process.execPath, [__filename], {
@@ -48,7 +49,7 @@ if (!phase) {
     if (win.getTitle() !== 'Math Pad · 函数面板') return;
     prepareOfflineWindow(win);
     win.webContents.on('console-message', details => {
-      if (details.level === 'error') log('BROWSER', details.message.slice(0, 500));
+      if (details.level === 'error' || details.message.startsWith('GeoGebra load failed')) log('BROWSER', details.message.slice(0, 500));
     });
     win.webContents.once('did-finish-load', () => {
       verify(win).catch(async error => {
@@ -113,14 +114,17 @@ if (!phase) {
       return;
     }
     if (phase === 'restart') {
-      await until(() => win.isVisible(), 'Configured startup did not show the panel');
+      assert.equal(win.isVisible(), false);
       assert.equal(ball.isVisible(), false);
+      trayMenu.getMenuItemById('show-panel').click();
+      await until(() => win.isVisible(), 'The tray could not open the workbench after restart');
       await click('open-settings');
       assert.equal(await value('inputMode'), 'python');
       assert.equal(await checked('showGrid'), false);
       assert.equal(await js('window.ggbApplet.getGridVisible()'), false);
       assert.equal(await value('sidebarWidth'), '376');
       assert.equal(await value('lessonDuration'), '1750');
+      assert.equal(await value('lessonFormulaPlacement'), 'list');
       await click('back-to-workspace');
       await click('open-formula');
       assert.equal(await mode(), 'mode-python');
@@ -146,8 +150,9 @@ if (!phase) {
     assert.equal(await value('lessonWidth'), '318');
     assert.equal(readSaved().showBall, false);
     assert.equal(readSaved().sidebarWidth, 365);
+    assert.equal(Object.hasOwn(readSaved(), 'openAtStartup'), false);
     assert.equal(await value('inputMode'), 'hand');
-    app.emit('second-instance');
+    trayMenu.getMenuItemById('show-panel').click();
     await until(() => win.isVisible(), 'Could not show panel');
     win.setContentSize(1000, 720);
     await click('open-formula');
@@ -202,12 +207,23 @@ if (!phase) {
     assert.equal(await js("document.querySelector('#sequence-form [name=count]').value"), '17');
     await js("document.querySelector('[data-panel=derivative-workspace]').click();document.querySelector('[data-lesson-example=quadratic]').click()");
     await awaitPage("document.querySelector('#derivative-teaching').dataset.slope==='2'", 'Derivative lesson did not start');
+    assert.equal(await js("document.querySelector('#derivative-formulas').hidden"), false, 'Old preferences should default to placement A');
+    const objectsBeforePlacementChange = await graphObjectNames();
     await click('open-settings');
+    assert.equal(await value('lessonFormulaPlacement'), 'both');
+    await change('lessonFormulaPlacement', 'list');
+    await click('back-to-workspace');
+    assert.equal(await js("document.querySelector('#derivative-formulas').hidden"), true);
+    assert.equal(await js("document.querySelectorAll('#curves > .derivative-group').length"), 1);
+    assert.deepEqual(await graphObjectNames(), objectsBeforePlacementChange);
+    await click('open-settings');
+    await change('lessonFormulaPlacement', 'both');
     await change('lessonDuration', 1750);
     await change('sidebarWidth', 360);
     await change('lessonWidth', 300);
     await click('back-to-workspace');
     assert.equal(await js("document.querySelector('#derivative-workspace').hidden"), false);
+    assert.equal(await js("document.querySelector('#derivative-formulas').hidden"), false);
     const start = Date.now();
     await click('lesson-play');
     await awaitPage("document.querySelector('#lesson-play').getAttribute('aria-pressed')==='false'", 'Fast derivative lesson did not finish', 3000);
@@ -274,7 +290,7 @@ if (!phase) {
         await change('panelTopmost', 'temporary');
         assert.equal(win.isAlwaysOnTop(), false);
         await change('panelTopmost', 'never');
-        app.emit('second-instance');
+        trayMenu.getMenuItemById('show-panel').click();
         await until(() => win.isFocused(), 'Could not restore foreground');
         assert.equal(win.isAlwaysOnTop(), false);
       } finally { probe.destroy(); }
@@ -293,7 +309,7 @@ if (!phase) {
       fs.rmdirSync(filename);
       fs.renameSync(moved, filename);
     }
-    assert.match((await js("window.mathPadSettings.update({openAtStartup:'yes',showGrid:true})")).error, /设置值无效/);
+    assert.match((await js("window.mathPadSettings.update({openAtStartup:true,showGrid:true})")).error, /设置值无效/);
     const beforeReset = await graphObjectNames();
     await reset();
     assert.deepEqual(await graphObjectNames(), beforeReset);
@@ -302,17 +318,18 @@ if (!phase) {
     assert.equal(await value('lessonWidth'), '280');
     assert.equal(await value('inputMode'), 'hand');
     assert.equal(await value('lessonDuration'), '3500');
+    assert.equal(await value('lessonFormulaPlacement'), 'both');
     assert.equal(await checked('showBall'), true);
     assert.equal(await js("document.querySelector('#sequence-form [name=count]').value"), '17');
     assert.equal(await js("document.querySelector('#results').textContent"), intersections);
     log('WRITE FAILURE ROLLS BACK; DEFAULTS RESET PREFERENCES AND PRESERVE WORKBENCH');
-    await change('openAtStartup', true);
     await change('closeAction', 'quit');
     await change('showBall', false);
     await change('inputMode', 'python');
     await change('showGrid', false);
     await change('sidebarWidth', 376);
     await change('lessonDuration', 1750);
+    await change('lessonFormulaPlacement', 'list');
     clearTimeout(guard); app.quit();
   }
 }

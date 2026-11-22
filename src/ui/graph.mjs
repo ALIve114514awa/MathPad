@@ -1,5 +1,6 @@
 const functions = [['Root', '零点'], ['Extremum', '局部极值']];
 const conics = [['Focus', '焦点'], ['Center', '中心'], ['Vertex', '顶点']];
+export const lessonLineColors = { tangent: [17, 124, 91], secant: [130, 64, 166] };
 const propertyTypes = {
   function: functions,
   circle: [['Center', '圆心']],
@@ -170,8 +171,8 @@ export function createGraph(api, preferences) {
           api.setPointSize(names[key], key === 'p' ? 6 : 5); api.setColor(names[key], ...color);
           api.setLayer(names[key], key === 'p' ? 7 : 6);
         }
-        for (const key of ['s', 'dx', 'dy']) { api.setColor(names[key], 130, 64, 166); api.setLineStyle(names[key], 1); api.setLineThickness(names[key], 3); }
-        api.setColor(names.t, 17, 124, 91); api.setLineThickness(names.t, 4);
+        for (const key of ['s', 'dx', 'dy']) { api.setColor(names[key], ...lessonLineColors.secant); api.setLineStyle(names[key], 1); api.setLineThickness(names[key], 3); }
+        api.setColor(names.t, ...lessonLineColors.tangent); api.setLineThickness(names.t, 4);
         api.registerObjectUpdateListener(p, () => {
           const x = api.getXcoord(p);
           if (!changing && Number.isFinite(x) && Math.abs(x - observedX) > 1e-9) { observedX = x; onMove(x); }

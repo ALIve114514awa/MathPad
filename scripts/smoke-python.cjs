@@ -1,4 +1,4 @@
-const { pause, until, createLogger, prepareOfflineWindow, loadApp } = require('./lib/smoke.cjs');
+const { pause, until, createLogger, prepareOfflineWindow, clickFloatingBall, loadApp } = require('./lib/smoke.cjs');
 const { app } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -20,7 +20,7 @@ app.on('browser-window-created',(_,win)=>{
   }));
 });
 async function verify(win){
-  app.emit('second-instance',{},[],process.cwd());
+  await clickFloatingBall();
   const js=code=>win.webContents.executeJavaScript(code);
   const click=id=>js(`document.getElementById(${JSON.stringify(id)}).click()`);
   const wait=(code,label,timeout)=>until(()=>js(code),label,timeout);

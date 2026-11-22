@@ -1,7 +1,7 @@
 {
   "name": "math-pad",
   "productName": "MathPad",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "A floating graphing panel for Windows presentations",
   "main": "src/main.cjs",
   "private": true,

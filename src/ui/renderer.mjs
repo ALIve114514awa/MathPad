@@ -3,6 +3,7 @@ import { pythonToFormula } from './python-expression.mjs';
 import { readMathML } from './mathml.mjs';
 import { availableProperties, createGraph } from './graph.mjs';
 import { initializeCalculator } from './calculator.mjs';
+import { initializeDerivativeGroup } from './derivative-group.mjs';
 import { initializeDerivativeLesson } from './derivative-lesson.mjs';
 import { initializeSidebarResize } from './sidebar-resize.mjs';
 import { initializeSettings } from './settings-page.mjs';
@@ -27,11 +28,12 @@ let handState = 'idle';
 let handTimer;
 let handGeneration = 0;
 let draftVersion = 0;
-let derivativeCurves = [];
+let generatedDerivativeCurves = [];
 let pendingDerivative;
 let resizeFrame;
 let editingName;
-const lesson = initializeDerivativeLesson(setCurveVisibility, () => settings.values?.lessonDuration ?? 3500);
+const derivativeGroup = initializeDerivativeGroup($('derivative-formulas'));
+const lesson = initializeDerivativeLesson(setCurveVisibility, () => settings.values?.lessonDuration ?? 3500, derivativeGroup.updateLines);
 
 function showText(element, text) {
   element.textContent = text;
@@ -107,7 +109,7 @@ async function loadGraph() {
     $('reset-view').disabled = false;
     resizeGraph();
     graph.resetView();
-    if (pendingDerivative) synchronizeDerivative(pendingDerivative);
+    if (pendingDerivative) synchronizeDerivative(pendingDerivative.result, pendingDerivative.sourceName);
   } catch (error) {
     graph = undefined;
     target.remove();
@@ -254,7 +256,8 @@ function renderResults() {
 }
 
 function addCurveRow(curve, previousRow) {
-  const row = document.createElement('li');
+  const item = document.createElement('li');
+  const row = document.createElement('div');
   row.className = 'curve-row';
   row.dataset.name = curve.name;
   row.dataset.syntax = curve.inputMode || 'keyboard';
@@ -299,8 +302,9 @@ function addCurveRow(curve, previousRow) {
     removeCurve(curve.name);
   };
   row.append(checkbox, formula, edit, visibility, remove);
-  if (previousRow) previousRow.replaceWith(row);
-  else $('curves').append(row);
+  item.append(row);
+  if (previousRow) previousRow.parentElement.replaceWith(item);
+  else $('curves').append(item);
   updateCount();
 }
 
@@ -332,7 +336,9 @@ function openFormula(curve) {
   draftVersion++;
   $('formula-title').textContent = curve ? '编辑曲线' : '新增一条曲线';
   submit.textContent = curve ? '保存修改并绘图' : '插入并绘图';
-  if (curve && derivativeCurves.some((item) => item.name === curve.name)) { calculator.suspendDerivative(); lesson.pause(); }
+  if (curve && (derivativeGroup.owns(curve.name) || calculator.referencesDerivativeSource(curve.name))) {
+    calculator.suspendDerivative(); lesson.pause();
+  }
   showText($('formula-error'), '');
   dialog.showModal();
   setMode(curve ? (curve.inputMode || 'keyboard') : (settings.values?.inputMode ?? 'hand'));
@@ -421,17 +427,19 @@ function editExpression(name, text, inputMode = 'keyboard') {
   graph.show(replacement.name, replacement.visible);
   const previousRow = document.querySelector(`.curve-row[data-name="${name}"]`);
   const associated = Array.from(results.entries()).filter(([, result]) => result.sources.includes(name));
-  const isTeachingSource = derivativeCurves[0]?.name === name;
-  if (derivativeCurves.some((curve) => curve.name === name)) {
-    lesson.clear(); pendingDerivative = undefined;
-    calculator.invalidateDerivative(isTeachingSource && replacement.kind === 'function' ? replacement.formula : undefined);
+  const linkedSource = calculator.referencesDerivativeSource(name);
+  const isTeachingSource = linkedSource || derivativeGroup.sourceName === name;
+  if (linkedSource || derivativeGroup.owns(name)) {
+    const nextSource = isTeachingSource && replacement.kind === 'function' ? replacement : undefined;
+    calculator.invalidateDerivative(nextSource?.formula, name, nextSource?.name);
+    derivativeGroup.clear();
   }
   for (const [key] of associated) removeResult(key);
   graph.remove(name);
   const entries = Array.from(curves, ([key, curve]) => key === name ? [replacement.name, replacement] : [key, curve]);
   curves.clear(); for (const [key, curve] of entries) curves.set(key, curve);
   if (selected.delete(name)) selected.add(replacement.name);
-  derivativeCurves = derivativeCurves.map((curve) => curve.name === name ? replacement : curve);
+  generatedDerivativeCurves = generatedDerivativeCurves.map((curve) => curve.name === name ? replacement : curve);
   addCurveRow(replacement, previousRow); selectionChanged();
   for (const [, result] of associated) {
     const sources = result.sources.map((source) => curves.get(source === name ? replacement.name : source));
@@ -456,26 +464,36 @@ function setCurveVisibility(curve, visible) {
 }
 function removeCurve(name) {
   if (!curves.has(name)) return;
-  if (lesson.owns(name)) lesson.clear();
+  if (derivativeGroup.owns(name) || calculator.referencesDerivativeSource(name)) {
+    calculator.invalidateDerivative(undefined, name);
+    derivativeGroup.clear();
+  }
   for (const [key, result] of results) if (result.sources.includes(name)) removeResult(key);
   graph.remove(name); curves.delete(name); selected.delete(name);
-  document.querySelector(`.curve-row[data-name="${name}"]`)?.remove();
+  document.querySelector(`.curve-row[data-name="${name}"]`)?.parentElement.remove();
+  generatedDerivativeCurves = generatedDerivativeCurves.filter((curve) => curve.name !== name);
   updateCount(); selectionChanged(); renderResults();
 }
-function synchronizeDerivative(result) {
-  pendingDerivative = result;
+function synchronizeDerivative(result, sourceName) {
+  pendingDerivative = { result, sourceName };
   if (!graph) { $('derivative-status').textContent = '导数已算出，坐标系就绪后自动同步。'; return; }
   const created = [];
   try {
     const teaching = result.teaching;
-    // Validate both formulas before changing any existing construction.
-    compileFormula(teaching.source); compileFormula(teaching.derivative);
-    created.push(addExpression(teaching.source, [34, 92, 212]));
+    let source = curves.get(sourceName);
+    if (sourceName && !source) throw new Error('原函数已删除，请重新选择需要求导的函数。');
+    if (!source) {
+      source = addExpression(teaching.source, [34, 92, 212]);
+      created.push(source);
+    }
     created.push(addExpression(teaching.derivative, [199, 104, 19]));
     if (teaching.order > 1) created.push(addExpression(result.plots[1].formula, [130, 64, 166]));
-    lesson.start(graph, created[0], created[1], teaching);
-    for (const curve of derivativeCurves) removeCurve(curve.name);
-    derivativeCurves = created;
+    const derivatives = created.filter((curve) => curve !== source);
+    lesson.start(graph, source, derivatives[0], teaching);
+    derivativeGroup.clear();
+    for (const curve of generatedDerivativeCurves) if (curve !== source) removeCurve(curve.name);
+    generatedDerivativeCurves = created;
+    derivativeGroup.mount(source, derivatives, teaching.order);
     $('derivative-status').textContent = teaching.order > 1 ? '已同步原函数、一阶导函数和所选高阶导函数；切线与变化率演示始终使用一阶导数。' : '原函数与一阶导函数已同步到右侧坐标系。';
     pendingDerivative = undefined;
     $('derivative-status').dataset.state = 'ready';
@@ -507,8 +525,9 @@ $('reset-view').onclick = () => graph.resetView();
 $('clear-all').onclick = () => {
   pendingDerivative = undefined;
   calculator.reset(); lesson.clear(); closeFormula();
+  derivativeGroup.clear();
   graph?.clear();
-  curves.clear(); results.clear(); selected.clear(); derivativeCurves = []; colorIndex = 0;
+  curves.clear(); results.clear(); selected.clear(); generatedDerivativeCurves = []; colorIndex = 0;
   $('curves').replaceChildren(); $('results').replaceChildren();
   input.value = ''; draftVersion++;
   showText($('formula-error'), ''); showText($('analysis-message'), '');
@@ -517,7 +536,7 @@ $('clear-all').onclick = () => {
 $('retry-graph').onclick = loadGraph;
 $('differentiate-selected').onclick = () => {
   const curve = curves.get(selected.values().next().value);
-  if (curve?.kind === 'function') calculator.derive({ formula: curve.formula || curve.text, point: '1', order: 1 });
+  if (curve?.kind === 'function') calculator.derive({ formula: curve.formula || curve.text, point: '1', order: 1 }, curve.name);
 };
 new ResizeObserver(resizeGraph).observe(graphHost);
 window.addEventListener('resize', resizeGraph);
@@ -528,6 +547,7 @@ const settings = initializeSettings((next, previous) => {
   if (next.showAxes !== previous?.showAxes) graph?.setAxes(next.showAxes);
   if (next.showGrid !== previous?.showGrid) graph?.setGrid(next.showGrid);
   if (next.lineWidth !== previous?.lineWidth) graph?.setLineWidth(next.lineWidth, curves.keys());
+  if (next.lessonFormulaPlacement !== previous?.lessonFormulaPlacement) derivativeGroup.setPlacement(next.lessonFormulaPlacement);
 });
 let returnWorkspace = 'graph-workspace';
 const calculator = initializeCalculator(addExpression, {
