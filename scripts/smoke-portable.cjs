@@ -12,6 +12,46 @@ fs.mkdirSync(output, { recursive: true });
 const sandbox = fs.mkdtempSync(path.join(output, 'portable-test-'));
 const copied = path.join(sandbox, '数学面板 全新副本');
 const report = path.join(os.tmpdir(), 'MathPad-portable-smoke.log');
+
+// Windows keeps a freshly extracted engine mapped for a moment after exit, and an
+// antivirus scan can hold the whole tree for seconds longer. Deleting it is retried;
+// a copy that stays locked is reported and left for the next run to prune.
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function removeTreeEventually(directory, timeout = 45000) {
+  const end = Date.now() + timeout;
+  for (;;) {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true, maxRetries: 1, retryDelay: 100 });
+      return true;
+    } catch (error) {
+      if (Date.now() >= end) return error;
+      sleepSync(500);
+    }
+  }
+}
+
+function pruneStaleSandboxes(maxAge = 6 * 60 * 60 * 1000) {
+  const stale = fs.readdirSync(output, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('portable-test-'))
+    .map(entry => path.join(output, entry.name));
+  for (const directory of stale) {
+    if (directory === sandbox) continue;
+    let age;
+    try {
+      age = Date.now() - fs.statSync(directory).mtimeMs;
+    } catch {
+      continue;
+    }
+    if (age < maxAge) continue;
+    // A copy that stays locked is harmless: the next run tries again.
+    removeTreeEventually(directory, 5000);
+  }
+}
+
+pruneStaleSandboxes();
 fs.mkdirSync(copied);
 fs.copyFileSync(path.join(root, 'portable-manifest.json'), path.join(copied, 'portable-manifest.json'));
 for (const file of manifest.files) {
@@ -54,9 +94,12 @@ try {
   assert.equal(path.dirname(fs.realpathSync(output)), fs.realpathSync(root));
   assert.equal(path.dirname(fs.realpathSync(sandbox)), fs.realpathSync(output));
   assert.ok(path.basename(sandbox).startsWith('portable-test-'));
-  // Windows can retain executable mappings briefly after the last process exits.
-  fs.rmSync(sandbox, { recursive: true, maxRetries: 12, retryDelay: 250 });
-  log('TEMPORARY COPY REMOVED; ALL CHECKS PASSED');
+  const removed = removeTreeEventually(sandbox);
+  if (removed === true) {
+    log('TEMPORARY COPY REMOVED; ALL CHECKS PASSED');
+  } else {
+    log(`TEMPORARY COPY DEFERRED (${removed.code || removed.message}); remove ${sandbox} later; ALL CHECKS PASSED`);
+  }
   console.log(fs.readFileSync(report, 'utf8'));
 } catch (error) {
   log(`FAIL ${error.stack}`);
